@@ -1,718 +1,852 @@
 document.addEventListener('DOMContentLoaded', async () => {
-    // --- 元素获取 ---
-    const themeToggleBtn = document.getElementById('theme-toggle-btn');
+
+    // ============== 全局变量和状态管理 ==============
+    let state = {
+        currentModel: 'chatgpt',
+        apiKeys: {
+            openai: '',
+            openrouter: '',
+            modelscope: ''
+        },
+        isGenerating: false,
+        abortController: null,
+        history: [],
+        theme: 'light',
+        spaceCount: 0,
+        lastSpaceTrigger: 0
+    };
+
+    // ============== 元素获取 ==============
     const body = document.body;
-    const modelSelectorContainer = document.querySelector('.model-selector-container');
+    const themeToggleBtn = document.getElementById('theme-toggle-btn');
     const modelCards = document.querySelectorAll('.model-card');
-    const nanobananaControls = document.getElementById('nanobanana-controls');
-    const chatgptControls = document.getElementById('chatgpt-controls');
-    const modelscopeControls = document.getElementById('modelscope-controls');
-    const apiKeyOpenRouterInput = document.getElementById('api-key-input-openrouter');
-    const apiKeyOpenAIInput = document.getElementById('api-key-input-openai');
-    const apiKeyModelScopeInput = document.getElementById('api-key-input-modelscope');
-    const generateBtns = document.querySelectorAll('.generate-btn');
-
-    const countButtons = document.querySelectorAll('.count-btn');
-    const mainResultImageContainer = document.getElementById('main-result-image');
-    const resultThumbnailsContainer = document.getElementById('result-thumbnails');
+    const controlPanels = document.querySelectorAll('.control-panel');
     
-    const nanobananaPromptRemark = document.getElementById('nanobanana-prompt-remark');
-    const chatgptPromptRemark = document.getElementById('chatgpt-prompt-remark');
-    const modelscopePromptRemark = document.getElementById('modelscope-prompt-remark');
-    const modelscopeNegativePromptRemark = document.getElementById('modelscope-negative-prompt-remark');
-
+    // API密钥输入框
+    const apiKeyInputOpenAI = document.getElementById('api-key-input-openai');
+    const apiKeyInputOpenRouter = document.getElementById('api-key-input-openrouter');
+    const apiKeyInputModelScope = document.getElementById('api-key-input-modelscope');
+    
+    // 提示词输入框
+    const promptInputChatGPT = document.getElementById('prompt-input-chatgpt');
+    const promptInputNanoBanana = document.getElementById('prompt-input-nanobanana');
+    const promptInputPositive = document.getElementById('prompt-input-positive');
+    const promptInputNegative = document.getElementById('prompt-input-negative');
+    
+    // 优化按钮
+    const optimizeButtons = document.querySelectorAll('.prompt-optimize-btn');
+    
+    // 图片上传相关
+    const imageUploadChatGPT = document.getElementById('image-upload-chatgpt');
+    const imageUpload = document.getElementById('image-upload');
+    const thumbnailsContainerChatGPT = document.getElementById('thumbnails-container-chatgpt');
+    const thumbnailsContainer = document.getElementById('thumbnails-container');
+    
+    // 生成按钮
+    const generateButtons = document.querySelectorAll('.generate-btn');
+    
+    // 结果展示
+    const mainResultImage = document.getElementById('main-result-image');
+    const resultThumbnails = document.getElementById('result-thumbnails');
+    
+    // 模态框
     const fullscreenModal = document.getElementById('fullscreen-modal');
     const modalImage = document.getElementById('modal-image');
-    const closeModalBtn = document.querySelector('.close-btn');
-
-    // Nano Banana 元素
-    const uploadAreaNano = document.querySelector('#nanobanana-controls .upload-area');
-    const fileInputNano = document.getElementById('image-upload');
-    const thumbnailsContainerNano = document.getElementById('thumbnails-container');
-    const promptNanoBananaInput = document.getElementById('prompt-input-nanobanana');
-
-    // ChatGPT 元素
-    const uploadAreaChatGPT = document.querySelector('#chatgpt-controls .upload-area');
-    const fileInputChatGPT = document.getElementById('image-upload-chatgpt');
-    const thumbnailsContainerChatGPT = document.getElementById('thumbnails-container-chatgpt');
-    const promptChatGPTInput = document.getElementById('prompt-input-chatgpt');
-
-    // ModelScope 元素
-    const promptPositiveInput = document.getElementById('prompt-input-positive');
-    const promptNegativeInput = document.getElementById('prompt-input-negative');
-    const sizeSelect = document.getElementById('size-select');
-    const stepsInput = document.getElementById('steps-input');
-    const guidanceInput = document.getElementById('guidance-input');
-    const seedInput = document.getElementById('seed-input');
-
-    // --- 状态变量 ---
-    let selectedFilesNano = [];
-    let selectedFilesChatGPT = [];
-    let currentModel = 'chatgpt';
+    const closeBtn = document.querySelector('.close-btn');
     
-    const modelStates = {};
-    modelCards.forEach(card => {
-        const modelId = card.dataset.model;
-        modelStates[modelId] = {
-            inputs: {
-                prompt: '',
-                negative_prompt: '',
-                size: '1328x1328',
-                steps: 30,
-                guidance: 3.5,
-                seed: -1,
-                count: 1,
-                files: []
-            },
-            task: {
-                isRunning: false,
-                statusText: ''
-            },
-            results: []
-        };
-    });
+    // 优化相关元素
+    const optimizeToastContainer = document.getElementById('optimize-toast-container');
+    const spaceFeedback = document.getElementById('space-trigger-feedback');
 
-    // --- 初始化函数 ---
-    function initialize() {
-        setupTheme();
-        loadStateForCurrentModel();
-        setupInputValidation();
-        setUniformButtonWidth();
-        updateHighlightPosition();
-        setupModalListeners();
-        setupFileUploads();
-        
-        fetch('/api/key-status').then(res => res.json()).then(data => {
-            if (data.isSet) { apiKeyOpenRouterInput.parentElement.style.display = 'none'; }
-        }).catch(error => console.error("无法检查 OpenRouter API key 状态:", error));
+    // ============== 主题切换功能 ==============
+    function initThemeToggle() {
+        // 从localStorage获取主题设置
+        const savedTheme = localStorage.getItem('rtpic_theme') || 'light';
+        applyTheme(savedTheme);
 
-        fetch('/api/openai-key-status').then(res => res.json()).then(data => {
-            if (data.isSet) { apiKeyOpenAIInput.parentElement.style.display = 'none'; }
-        }).catch(error => console.error("无法检查 OpenAI API key 状态:", error));
-
-        fetch('/api/modelscope-key-status').then(res => res.json()).then(data => {
-            if (data.isSet) { apiKeyModelScopeInput.parentElement.style.display = 'none'; }
-        }).catch(error => console.error("无法检查 ModelScope API key 状态:", error));
+        themeToggleBtn.addEventListener('click', () => {
+            const currentTheme = body.classList.contains('dark-mode') ? 'dark' : 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            applyTheme(newTheme);
+            localStorage.setItem('rtpic_theme', newTheme);
+        });
     }
-    
-    function saveStateForModel(modelId) {
-        const state = modelStates[modelId];
-        if (!state) return;
-        
-        if (modelId === 'nanobanana') {
-            state.inputs.prompt = promptNanoBananaInput.value;
-            state.inputs.files = selectedFilesNano;
-        } else if (modelId === 'chatgpt') {
-            state.inputs.prompt = promptChatGPTInput.value;
-            state.inputs.files = selectedFilesChatGPT;
+
+    function applyTheme(theme) {
+        if (theme === 'dark') {
+            body.classList.remove('light-mode');
+            body.classList.add('dark-mode');
         } else {
-            state.inputs.prompt = promptPositiveInput.value;
-            state.inputs.negative_prompt = promptNegativeInput.value;
-            state.inputs.size = sizeSelect.value;
-            state.inputs.steps = parseInt(stepsInput.value, 10);
-            state.inputs.guidance = parseFloat(guidanceInput.value);
-            state.inputs.seed = parseInt(seedInput.value, 10);
-            state.inputs.count = parseInt(modelscopeControls.querySelector('.count-btn.active').dataset.count, 10);
+            body.classList.remove('dark-mode');
+            body.classList.add('light-mode');
         }
+        state.theme = theme;
     }
 
-    function loadStateForCurrentModel() {
-        const state = modelStates[currentModel];
-        if (!state) return;
-        
-        updateActiveModelUI();
-        
-        if (currentModel === 'nanobanana') {
-            promptNanoBananaInput.value = state.inputs.prompt;
-            selectedFilesNano = state.inputs.files;
-            thumbnailsContainerNano.innerHTML = '';
-            selectedFilesNano.forEach(createThumbnail);
-        } else if (currentModel === 'chatgpt') {
-            promptChatGPTInput.value = state.inputs.prompt;
-            selectedFilesChatGPT = state.inputs.files;
-            thumbnailsContainerChatGPT.innerHTML = '';
-            selectedFilesChatGPT.forEach(file => createThumbnail(file, 'chatgpt'));
-        } else {
-            promptPositiveInput.value = state.inputs.prompt;
-            promptNegativeInput.value = state.inputs.negative_prompt;
-            sizeSelect.value = state.inputs.size;
-            stepsInput.value = state.inputs.steps;
-            guidanceInput.value = state.inputs.guidance;
-            seedInput.value = state.inputs.seed;
-            countButtons.forEach(btn => {
-                btn.classList.toggle('active', parseInt(btn.dataset.count, 10) === state.inputs.count);
+    // ============== 模型切换功能 ==============
+    function initModelSelector() {
+        // 默认选择第一个模型
+        const firstModelCard = document.querySelector('.model-card.active') || modelCards[0];
+        if (firstModelCard) {
+            switchModel(firstModelCard.dataset.model);
+        }
+
+        modelCards.forEach(card => {
+            card.addEventListener('click', () => {
+                const modelId = card.dataset.model;
+                switchModel(modelId);
             });
-        }
-        
-        if (state.task.isRunning) {
-            updateResultStatusWithSpinner(state.task.statusText || '正在生成中...');
-        } else if (state.results.length > 0) {
-            displayResults(state.results);
-        } else {
-            clearResults();
-        }
-        
-        updateGenerateButtonState();
-    }
-
-    function clearResults() { mainResultImageContainer.innerHTML = `<p>生成的图片将显示在这里</p>`; resultThumbnailsContainer.innerHTML = ''; }
-    
-    function setupModalListeners() {
-        closeModalBtn.onclick = () => { fullscreenModal.classList.add('hidden'); };
-        fullscreenModal.onclick = (e) => { if (e.target === fullscreenModal) { fullscreenModal.classList.add('hidden'); } };
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !fullscreenModal.classList.contains('hidden')) { fullscreenModal.classList.add('hidden'); } });
-    }
-
-    function openModal(imageUrl) { modalImage.src = imageUrl; fullscreenModal.classList.remove('hidden'); }
-    
-    function setupTheme() {
-        function applyTheme(theme) { body.className = theme + '-mode'; localStorage.setItem('theme', theme); }
-        themeToggleBtn.addEventListener('click', () => { const newTheme = body.classList.contains('dark-mode') ? 'light' : 'dark'; applyTheme(newTheme); });
-        const savedTheme = localStorage.getItem('theme');
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (savedTheme) { applyTheme(savedTheme); } else if (prefersDark) { applyTheme('dark'); } else { applyTheme('light'); }
-    }
-    
-    function setUniformButtonWidth() {
-        let maxWidth = 0;
-        modelCards.forEach(card => { card.style.width = 'auto'; const cardWidth = card.offsetWidth; if (cardWidth > maxWidth) { maxWidth = cardWidth; } });
-        modelCards.forEach(card => { card.style.width = `${maxWidth}px`; });
-        updateHighlightPosition();
-    }
-
-    function updateHighlightPosition() {
-        const activeButton = modelSelectorContainer.querySelector('.model-card.active');
-        if (activeButton) { const left = activeButton.offsetLeft; const width = activeButton.offsetWidth; modelSelectorContainer.style.setProperty('--highlight-left', `${left}px`); modelSelectorContainer.style.setProperty('--highlight-width', `${width}px`); }
-    }
-
-    function updateActiveModelUI() {
-        // 隐藏所有控制面板
-        nanobananaControls.classList.add('hidden');
-        chatgptControls.classList.add('hidden');
-        modelscopeControls.classList.add('hidden');
-        
-        // 显示当前模型的控制面板
-        if (currentModel === 'nanobanana') { 
-            nanobananaControls.classList.remove('hidden'); 
-        } else if (currentModel === 'chatgpt') { 
-            chatgptControls.classList.remove('hidden'); 
-        } else { 
-            modelscopeControls.classList.remove('hidden'); 
-        }
-        
-        // 清除提示词备注
-        nanobananaPromptRemark.textContent = '';
-        chatgptPromptRemark.textContent = '';
-        modelscopePromptRemark.textContent = '';
-        modelscopeNegativePromptRemark.textContent = '';
-        
-        // 设置提示词备注
-        if (currentModel === 'nanobanana') { 
-            nanobananaPromptRemark.textContent = '(支持中文提示词)'; 
-        } else if (currentModel === 'chatgpt') { 
-            chatgptPromptRemark.textContent = '(支持中文提示词)'; 
-        } else {
-            let remarkText = '';
-            if (currentModel === 'Qwen/Qwen-Image') { 
-                remarkText = '(支持中文提示词)'; 
-            } else if (currentModel.includes('FLUX') || currentModel.includes('Kontext') || currentModel.includes('Krea')) { 
-                remarkText = '(请使用英文提示词)'; 
-            }
-            modelscopePromptRemark.textContent = remarkText;
-            modelscopeNegativePromptRemark.textContent = remarkText;
-        }
-    }
-    
-    function setupInputValidation() {
-        const inputsToValidate = [stepsInput, guidanceInput, seedInput];
-        inputsToValidate.forEach(input => {
-            input.addEventListener('input', () => validateInput(input));
-            if (input.id === 'seed-input') { input.addEventListener('change', () => validateInput(input)); }
         });
     }
 
-    function validateInput(inputElement) {
-        const min = inputElement.dataset.min ? parseFloat(inputElement.dataset.min) : null;
-        const max = inputElement.dataset.max ? parseFloat(inputElement.dataset.max) : null;
-        const value = inputElement.value;
-        const errorMessageElement = inputElement.nextElementSibling;
-        if (value === '') { errorMessageElement.classList.add('hidden'); inputElement.classList.remove('input-error'); return true; }
-        const numValue = parseFloat(value);
-        let isValid = true;
-        let errorMessage = '';
-        if (min !== null && numValue < min) { isValid = false; errorMessage = max !== null ? `值必须在 ${min} 和 ${max} 之间` : `值必须大于等于 ${min}`; } 
-        else if (max !== null && numValue > max) { isValid = false; errorMessage = `值必须在 ${min} 和 ${max} 之间`; }
-        if (inputElement.step === "1" || !inputElement.step) { if (!Number.isInteger(numValue)) { isValid = false; errorMessage = '请输入一个整数'; } }
-        if (isValid) { errorMessageElement.classList.add('hidden'); errorMessageElement.textContent = ''; inputElement.classList.remove('input-error'); } 
-        else { errorMessageElement.classList.remove('hidden'); errorMessageElement.textContent = errorMessage; inputElement.classList.add('input-error'); }
-        return isValid;
-    }
-
-    function updateGenerateButtonState() {
-        const isTaskRunning = modelStates[currentModel].task.isRunning;
-        const currentPanel = (currentModel === 'nanobanana') ? nanobananaControls : (currentModel === 'chatgpt') ? chatgptControls : modelscopeControls;
-        const currentButton = currentPanel.querySelector('.generate-btn');
-        const btnText = currentButton.querySelector('.btn-text');
-        const spinner = currentButton.querySelector('.spinner');
-        setLoading(isTaskRunning, currentButton, btnText, spinner);
-    }
-
-    function setupFileUploads() {
-        // Nano Banana 文件上传
-        ['dragenter', 'dragover'].forEach(eventName => uploadAreaNano.addEventListener(eventName, () => uploadAreaNano.classList.add('drag-over')));
-        ['dragleave', 'drop'].forEach(eventName => uploadAreaNano.addEventListener(eventName, () => uploadAreaNano.classList.remove('drag-over')));
-        uploadAreaNano.addEventListener('drop', (e) => handleFiles(Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/')), 'nanobanana'));
-        fileInputNano.addEventListener('change', (e) => handleFiles(Array.from(e.target.files).filter(file => file.type.startsWith('image/')), 'nanobanana'));
+    function switchModel(modelId) {
+        state.currentModel = modelId;
         
-        // ChatGPT 文件上传
-        ['dragenter', 'dragover'].forEach(eventName => uploadAreaChatGPT.addEventListener(eventName, () => uploadAreaChatGPT.classList.add('drag-over')));
-        ['dragleave', 'drop'].forEach(eventName => uploadAreaChatGPT.addEventListener(eventName, () => uploadAreaChatGPT.classList.remove('drag-over')));
-        uploadAreaChatGPT.addEventListener('drop', (e) => handleFiles(Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/')), 'chatgpt'));
-        fileInputChatGPT.addEventListener('change', (e) => handleFiles(Array.from(e.target.files).filter(file => file.type.startsWith('image/')), 'chatgpt'));
-
-        // 添加粘贴功能
-        setupPasteFunctionality();
-    }
-
-    function setupPasteFunctionality() {
-        let isMouseOverNano = false;
-        let isMouseOverChatGPT = false;
-
-        // 监听鼠标进入/离开上传区域
-        uploadAreaNano.addEventListener('mouseenter', () => { isMouseOverNano = true; });
-        uploadAreaNano.addEventListener('mouseleave', () => { isMouseOverNano = false; });
-        
-        uploadAreaChatGPT.addEventListener('mouseenter', () => { isMouseOverChatGPT = true; });
-        uploadAreaChatGPT.addEventListener('mouseleave', () => { isMouseOverChatGPT = false; });
-
-        // 监听键盘事件（全局级别，因为剪贴板事件需要在文档级别捕获）
-        document.addEventListener('keydown', async (e) => {
-            // 检查是否按下 Ctrl+V 或 Cmd+V
-            if ((e.ctrlKey || e.metaKey) && e.key === 'v' && !e.shiftKey && !e.altKey) {
-                e.preventDefault();
-                
-                // 鼠标在哪个区域就处理哪个区域
-                if (isMouseOverChatGPT) {
-                    await handlePasteImage('chatgpt');
-                } else if (isMouseOverNano) {
-                    await handlePasteImage('nanobanana');
-                }
+        // 更新模型选择器UI
+        modelCards.forEach(card => {
+            card.classList.remove('active');
+            if (card.dataset.model === modelId) {
+                card.classList.add('active');
             }
         });
+
+        // 更新控制面板显示
+        controlPanels.forEach(panel => {
+            panel.classList.add('hidden');
+        });
+        
+        const activePanel = document.getElementById(`${modelId}-controls`);
+        if (activePanel) {
+            activePanel.classList.remove('hidden');
+        }
+
+        // 恢复该模型的保存状态
+        restoreModelState(modelId);
+        
+        // 保存当前状态
+        saveModelState(modelId);
     }
 
-    async function handlePasteImage(modelId) {
+    function saveModelState(modelId) {
+        const inputs = getModelInputs(modelId);
+        localStorage.setItem(`rtpic_${modelId}_state`, JSON.stringify(inputs));
+    }
+
+    function restoreModelState(modelId) {
         try {
-            // 尝试多种方法获取剪贴板内容
-            
-            // 方法1: 使用现代 Clipboard API 获取图片数据
-            try {
-                const clipboardItems = await navigator.clipboard.read();
-                for (const item of clipboardItems) {
-                    for (const type of item.types) {
-                        if (type.startsWith('image/')) {
-                            const blob = await item.getType(type);
-                            const file = new File([blob], `pasted-image-${Date.now()}.${type.split('/')[1]}`, { type });
-                            handleFiles([file], modelId);
-                            showPasteSuccessHint(modelId);
-                            return;
-                        }
-                    }
-                }
-            } catch (err) {
-                console.log('现代剪贴板API不可用:', err.message);
-            }
-
-            // 方法2: 尝试从文件系统中获取（适用于从文件管理器复制的文件）
-            if (navigator.clipboard && navigator.clipboard.readFiles) {
-                try {
-                    const files = await navigator.clipboard.readFiles();
-                    const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
-                    if (imageFiles.length > 0) {
-                        handleFiles(imageFiles, modelId);
-                        showPasteSuccessHint(modelId);
-                        return;
-                    }
-                } catch (err) {
-                    console.log('文件读取API不可用:', err.message);
-                }
-            }
-
-            // 方法3: 监听paste事件（适用于从Finder等复制的文件）
-            try {
-                const data = await new Promise((resolve) => {
-                    const handlePaste = (e) => {
-                        if (e.clipboardData && e.clipboardData.files) {
-                            const imageFiles = Array.from(e.clipboardData.files).filter(file => file.type.startsWith('image/'));
-                            if (imageFiles.length > 0) {
-                                document.removeEventListener('paste', handlePaste);
-                                resolve(imageFiles);
-                            }
-                        }
-                    };
-                    document.addEventListener('paste', handlePaste, { once: true });
-                    
-                    // 触发粘贴事件
-                    const pasteEvent = new ClipboardEvent('paste');
-                    Object.defineProperty(pasteEvent, 'clipboardData', { value: {
-                        files: []
-                    }});
-                    document.dispatchEvent(pasteEvent);
-                    
-                    // 如果2秒内没有获取到数据，清理
-                    setTimeout(() => {
-                        document.removeEventListener('paste', handlePaste);
-                        resolve([]);
-                    }, 2000);
-                });
+            const savedState = localStorage.getItem(`rtpic_${modelId}_state`);
+            if (savedState) {
+                const inputs = JSON.parse(savedState);
+                const inputElements = getModelInputs(modelId);
                 
-                if (data && data.length > 0) {
-                    handleFiles(data, modelId);
-                    showPasteSuccessHint(modelId);
-                    return;
-                }
-            } catch (err) {
-                console.log('Paste事件监听失败:', err.message);
+                if (inputElements.prompt) inputElements.prompt.value = inputs.prompt || '';
+                if (inputElements.negative) inputElements.negative.value = inputs.negative || '';
+                if (inputElements.seed) inputElements.seed.value = inputs.seed || '-1';
+                if (inputElements.steps) inputElements.steps.value = inputs.steps || '30';
+                if (inputElements.guidance) inputElements.guidance.value = inputs.guidance || '3.5';
             }
-            
-            showPasteNoImageHint();
-            
         } catch (error) {
-            console.error('粘贴图片失败:', error);
-            showPasteErrorHint();
+            console.error('恢复模型状态失败:', error);
         }
     }
 
-    function showPasteSuccessHint(modelId) {
-        const container = modelId === 'chatgpt' ? uploadAreaChatGPT : uploadAreaNano;
-        const hint = document.createElement('div');
-        hint.className = 'paste-success-hint';
-        hint.innerHTML = '✅ 图片已粘贴成功';
-        hint.style.cssText = `
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: #4CAF50;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            z-index: 1000;
-            animation: fadeInOut 2s ease-in-out;
-        `;
-        
-        container.style.position = 'relative';
-        container.appendChild(hint);
-        
-        // 2秒后移除提示
-        setTimeout(() => {
-            if (hint.parentNode) {
-                hint.parentNode.removeChild(hint);
-            }
-        }, 2000);
-    }
-
-    function showPasteNoImageHint() {
-        const hint = document.createElement('div');
-        hint.className = 'paste-no-image-hint';
-        hint.innerHTML = '❌ 剪贴板中没有图片';
-        hint.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #FF6B6B;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            z-index: 1000;
-            animation: fadeInOut 2s ease-in-out;
-        `;
-        
-        document.body.appendChild(hint);
-        
-        setTimeout(() => {
-            if (hint.parentNode) {
-                hint.parentNode.removeChild(hint);
-            }
-        }, 2000);
-    }
-
-    function showPasteErrorHint() {
-        const hint = document.createElement('div');
-        hint.className = 'paste-error-hint';
-        hint.innerHTML = '❌ 粘贴失败，请重试';
-        hint.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #FF6B6B;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            z-index: 1000;
-            animation: fadeInOut 2s ease-in-out;
-        `;
-        
-        document.body.appendChild(hint);
-        
-        setTimeout(() => {
-            if (hint.parentNode) {
-                hint.parentNode.removeChild(hint);
-            }
-        }, 2000);
-    }
-
-    function handleFiles(files, modelId) {
-        if (modelId === 'nanobanana') {
-            files.forEach(file => {
-                if (!selectedFilesNano.some(f => f.name === file.name)) {
-                    selectedFilesNano.push(file);
-                    createThumbnail(file, 'nanobanana');
-                }
-            });
-        } else if (modelId === 'chatgpt') {
-            files.forEach(file => {
-                if (!selectedFilesChatGPT.some(f => f.name === file.name)) {
-                    selectedFilesChatGPT.push(file);
-                    createThumbnail(file, 'chatgpt');
-                }
-            });
+    function getModelInputs(modelId) {
+        switch (modelId) {
+            case 'chatgpt':
+                return {
+                    prompt: promptInputChatGPT,
+                    negative: null
+                };
+            case 'nanobanana':
+                return {
+                    prompt: promptInputNanoBanana,
+                    negative: null
+                };
+            case 'Qwen/Qwen-Image':
+            case 'MusePublic/489_ckpt_FLUX_1':
+            case 'MusePublic/FLUX.1-Kontext-Dev':
+            case 'black-forest-labs/FLUX.1-Krea-dev':
+                return {
+                    prompt: promptInputPositive,
+                    negative: promptInputNegative,
+                    seed: document.getElementById('seed-input'),
+                    steps: document.getElementById('steps-input'),
+                    guidance: document.getElementById('guidance-input')
+                };
+            default:
+                return {
+                    prompt: promptInputPositive,
+                    negative: promptInputNegative
+                };
         }
     }
 
-    function createThumbnail(file, modelId) {
+    // ============== API密钥管理 ==============
+    function initApiKeyManagement() {
+        // 从localStorage恢复API密钥
+        const savedKeys = {
+            openai: localStorage.getItem('rtpic_openai_key') || '',
+            openrouter: localStorage.getItem('rtpic_openrouter_key') || '',
+            modelscope: localStorage.getItem('rtpic_modelscope_key') || ''
+        };
+
+        apiKeyInputOpenAI.value = savedKeys.openai;
+        apiKeyInputOpenRouter.value = savedKeys.openrouter;
+        apiKeyInputModelScope.value = savedKeys.modelscope;
+
+        state.apiKeys = savedKeys;
+
+        // API密钥输入事件
+        apiKeyInputOpenAI.addEventListener('input', (e) => {
+            state.apiKeys.openai = e.target.value;
+            localStorage.setItem('rtpic_openai_key', e.target.value);
+        });
+
+        apiKeyInputOpenRouter.addEventListener('input', (e) => {
+            state.apiKeys.openrouter = e.target.value;
+            localStorage.setItem('rtpic_openrouter_key', e.target.value);
+        });
+
+        apiKeyInputModelScope.addEventListener('input', (e) => {
+            state.apiKeys.modelscope = e.target.value;
+            localStorage.setItem('rtpic_modelscope_key', e.target.value);
+        });
+    }
+
+    // ============== 图片上传功能 ==============
+    function initImageUpload() {
+        // ChatGPT模型图片上传
+        const uploadAreaChatGPT = document.querySelector('#chatgpt-controls .upload-area');
+        if (uploadAreaChatGPT) {
+            setupDragAndDrop(uploadAreaChatGPT, 'chatgpt');
+        }
+
+        // 其他模型图片上传
+        const uploadArea = document.querySelector('#nanobanana-controls .upload-area, #modelscope-controls .upload-area');
+        if (uploadArea) {
+            setupDragAndDrop(uploadArea, 'general');
+        }
+
+        // 文件输入
+        imageUploadChatGPT?.addEventListener('change', handleImageUpload);
+        imageUpload?.addEventListener('change', handleImageUpload);
+    }
+
+    function setupDragAndDrop(uploadArea, modelType) {
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => uploadArea.classList.add('drag-over'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('drag-over'), false);
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            handleFileUpload(files, modelType);
+        });
+
+        uploadArea.addEventListener('click', () => {
+            const fileInput = modelType === 'chatgpt' ? imageUploadChatGPT : imageUpload;
+            fileInput?.click();
+        });
+    }
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    function handleImageUpload(e) {
+        const files = e.target.files;
+        const modelType = e.target.id.includes('chatgpt') ? 'chatgpt' : 'general';
+        handleFileUpload(files, modelType);
+    }
+
+    function handleFileUpload(files, modelType) {
+        const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+        if (imageFiles.length === 0) {
+            showToast('请上传图片文件', 'error');
+            return;
+        }
+
+        const container = modelType === 'chatgpt' ? thumbnailsContainerChatGPT : thumbnailsContainer;
+        
+        imageFiles.forEach(file => {
+            createThumbnail(file, container);
+        });
+    }
+
+    function createThumbnail(file, container) {
         const reader = new FileReader();
         reader.onload = (e) => {
-            const wrapper = document.createElement('div'); 
+            const wrapper = document.createElement('div');
             wrapper.className = 'thumbnail-wrapper';
-            const img = document.createElement('img'); 
-            img.src = e.target.result; 
-            img.alt = file.name;
-            const removeBtn = document.createElement('button'); 
-            removeBtn.className = 'remove-btn'; 
-            removeBtn.innerHTML = '×';
-            removeBtn.onclick = () => {
-                if (modelId === 'nanobanana') {
-                    selectedFilesNano = selectedFilesNano.filter(f => f.name !== file.name);
-                } else if (modelId === 'chatgpt') {
-                    selectedFilesChatGPT = selectedFilesChatGPT.filter(f => f.name !== file.name);
-                }
-                wrapper.remove();
-            };
-            wrapper.appendChild(img); 
-            wrapper.appendChild(removeBtn);
             
-            if (modelId === 'nanobanana') {
-                thumbnailsContainerNano.appendChild(wrapper);
-            } else if (modelId === 'chatgpt') {
-                thumbnailsContainerChatGPT.appendChild(wrapper);
-            }
+            const img = document.createElement('img');
+            img.src = e.target.result;
+            img.className = 'thumbnail';
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = '×';
+            removeBtn.className = 'remove-btn';
+            removeBtn.onclick = () => wrapper.remove();
+            
+            wrapper.appendChild(img);
+            wrapper.appendChild(removeBtn);
+            container.appendChild(wrapper);
         };
         reader.readAsDataURL(file);
     }
 
-    modelCards.forEach(card => {
-        card.addEventListener('click', () => {
-            saveStateForModel(currentModel);
-            currentModel = card.dataset.model;
-            modelCards.forEach(c => c.classList.remove('active'));
-            card.classList.add('active');
-            loadStateForCurrentModel();
-            updateHighlightPosition();
+    // ============== 生成功能 ==============
+    function initGenerateButtons() {
+        generateButtons.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                await handleGenerate(state.currentModel);
+            });
         });
-    });
+    }
 
-    countButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            countButtons.forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-        });
-    });
-    
-    window.addEventListener('resize', setUniformButtonWidth);
+    async function handleGenerate(modelId) {
+        if (state.isGenerating) {
+            showToast('正在生成中，请稍候...', 'warn');
+            return;
+        }
 
-    generateBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const modelToGenerate = currentModel;
-            if (modelStates[modelToGenerate].task.isRunning) {
-                alert('当前模型有任务正在生成中，请稍候...');
-                return;
-            }
-            saveStateForModel(modelToGenerate);
-            runGenerationTask(modelToGenerate, btn);
-        });
-    });
+        const inputs = getModelInputs(modelId);
+        if (!inputs.prompt.value.trim()) {
+            showToast('请输入提示词', 'warn');
+            return;
+        }
 
-    async function runGenerationTask(modelId, btn) {
-        const btnText = btn.querySelector('.btn-text');
-        const spinner = btn.querySelector('.spinner');
-        const state = modelStates[modelId];
-        
+        const requestData = {
+            model: modelId,
+            prompt: inputs.prompt.value,
+            negative_prompt: inputs.negative?.value || '',
+            images: getUploadedImages()
+        };
+
+        // 添加参数
+        if (inputs.seed) requestData.seed = parseInt(inputs.seed.value) || -1;
+        if (inputs.steps) requestData.steps = parseInt(inputs.steps.value) || 30;
+        if (inputs.guidance) requestData.guidance = parseFloat(inputs.guidance.value) || 3.5;
+
         try {
-            state.task.isRunning = true;
-            setLoading(true, btn, btnText, spinner);
+            state.isGenerating = true;
+            setButtonLoading(true);
             
-            const statusUpdate = (text) => {
-                state.task.statusText = text;
-                if (modelId === currentModel) {
-                    updateResultStatusWithSpinner(text);
-                }
-            };
-            
-            statusUpdate('准备请求...');
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData)
+            });
 
-            let imageUrls;
-            if (modelId === 'nanobanana') {
-                imageUrls = await handleNanoBananaGeneration(statusUpdate);
-            } else if (modelId === 'chatgpt') {
-                imageUrls = await handleChatGPTGeneration(statusUpdate);
-            } else {
-                imageUrls = await handleModelScopeGeneration(statusUpdate);
-            }
-            
-            state.results = imageUrls;
-
-            if (modelId === currentModel) {
-                displayResults(imageUrls);
+            if (!response.ok) {
+                throw new Error(`生成失败: ${response.status}`);
             }
 
+            const data = await response.json();
+            displayResults(data.images);
+            
         } catch (error) {
-            if (modelId === currentModel) {
-                updateResultStatus(error.message);
-            }
-            console.error(`模型 ${modelId} 生成失败:`, error);
+            console.error('生成失败:', error);
+            showToast('生成失败，请重试', 'error');
         } finally {
-            state.task.isRunning = false;
-            state.task.statusText = '';
-            if (modelId === currentModel) {
-                setLoading(false, btn, btnText, spinner);
-            }
+            state.isGenerating = false;
+            setButtonLoading(false);
         }
     }
-    
-    async function fetchWithTimeout(resource, options, timeout) {
-        const controller = new AbortController();
-        const id = setTimeout(() => controller.abort(), timeout);
-        const response = await fetch(resource, { ...options, signal: controller.signal });
-        clearTimeout(id);
-        return response;
-    }
 
-    async function handleNanoBananaGeneration(statusUpdate) {
-        if (apiKeyOpenRouterInput.parentElement.style.display !== 'none' && !apiKeyOpenRouterInput.value.trim()) { throw new Error('请输入 OpenRouter API 密钥'); }
-        if (!promptNanoBananaInput.value.trim()) { throw new Error('请输入提示词'); }
-        statusUpdate('正在生成图片...');
-        const base64Images = await Promise.all(selectedFilesNano.map(fileToBase64));
-        const requestBody = { model: 'nanobanana', prompt: modelStates.nanobanana.inputs.prompt, images: base64Images, apikey: apiKeyOpenRouterInput.value };
-        const response = await fetch('/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) });
-        const data = await response.json();
-        if (!response.ok || data.error) { throw new Error(data.error || `服务器错误: ${response.status}`); }
-        return [data.imageUrl];
-    }
-
-    async function handleChatGPTGeneration(statusUpdate) {
-        if (apiKeyOpenAIInput.parentElement.style.display !== 'none' && !apiKeyOpenAIInput.value.trim()) { throw new Error('请输入 OpenAI API 密钥'); }
-        if (!promptChatGPTInput.value.trim()) { throw new Error('请输入提示词'); }
-        statusUpdate('正在生成图片...');
-        const base64Images = await Promise.all(selectedFilesChatGPT.map(fileToBase64));
-        const requestBody = { model: 'chatgpt', prompt: modelStates.chatgpt.inputs.prompt, images: base64Images, apikey: apiKeyOpenAIInput.value };
-        const response = await fetch('/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) });
-        const data = await response.json();
-        if (!response.ok || data.error) { throw new Error(data.error || `服务器错误: ${response.status}`); }
-        return [data.imageUrl];
-    }
-
-    async function handleModelScopeGeneration(statusUpdate) {
-        const inputs = modelStates[currentModel].inputs;
-        const isStepsValid = validateInput(stepsInput);
-        const isGuidanceValid = validateInput(guidanceInput);
-        const isSeedValid = validateInput(seedInput);
-        if (!isStepsValid || !isGuidanceValid || !isSeedValid) { throw new Error('请修正参数错误后再生成'); }
-        if (apiKeyModelScopeInput.parentElement.style.display !== 'none' && !apiKeyModelScopeInput.value.trim()) { throw new Error('请输入 Modelscope 的 API Key'); }
-        if (!inputs.prompt) { throw new Error('请输入正向提示词'); }
-        
-        const isQwen = currentModel.includes('Qwen');
-        const timeoutPerRequest = isQwen ? 120 * 1000 : 180 * 1000;
-        const totalTimeout = isQwen ? 360 * 1000 : timeoutPerRequest;
-        
-        const baseRequestBody = { model: currentModel, apikey: apiKeyModelScopeInput.value, parameters: { prompt: inputs.prompt, negative_prompt: inputs.negative_prompt, size: inputs.size, steps: inputs.steps, guidance: inputs.guidance, seed: inputs.seed }, timeout: timeoutPerRequest / 1000 };
-        const results = [];
-        const controller = new AbortController();
-        const overallTimeoutId = setTimeout(() => controller.abort(), totalTimeout);
-        try {
-            if (isQwen && inputs.count > 1) {
-                for (let i = 0; i < inputs.count; i++) {
-                    statusUpdate(`正在生成 ${i + 1}/${inputs.count} 张图片...`);
-                    const requestBody = JSON.parse(JSON.stringify(baseRequestBody));
-                    if (requestBody.parameters.seed === -1) { requestBody.parameters.seed = Math.floor(Math.random() * (2**31 - 1)); }
-                    const response = await fetchWithTimeout('/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) }, timeoutPerRequest);
-                    const data = await response.json();
-                    if (!response.ok || data.error) { throw new Error(`第 ${i + 1} 张图片生成失败: ${data.error}`); }
-                    results.push(data);
-                }
+    function setButtonLoading(loading) {
+        generateButtons.forEach(btn => {
+            const spinner = btn.querySelector('.spinner');
+            const btnText = btn.querySelector('.btn-text');
+            
+            if (loading) {
+                spinner.classList.remove('hidden');
+                btnText.textContent = '生成中...';
+                btn.disabled = true;
             } else {
-                const fetchPromises = [];
-                for (let i = 0; i < inputs.count; i++) {
-                    const requestBody = JSON.parse(JSON.stringify(baseRequestBody));
-                    if (requestBody.parameters.seed === -1) { requestBody.parameters.seed = Math.floor(Math.random() * (2**31 - 1)); }
-                    fetchPromises.push(fetchWithTimeout('/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) }, timeoutPerRequest));
-                }
-                statusUpdate(`正在生成 1/${inputs.count} 张图片...`);
-                let completedCount = 0;
-                const processPromise = async (promise) => {
-                    const response = await promise;
-                    const data = await response.json();
-                    completedCount++;
-                    const statusText = (completedCount < inputs.count) ? `正在生成 ${completedCount + 1}/${inputs.count} 张图片...` : `已完成 ${completedCount}/${inputs.count} 张图片...`;
-                    statusUpdate(statusText);
-                    if (!response.ok || data.error) { return { error: `第 ${completedCount} 张图片生成失败: ${data.error}` }; }
-                    return data;
-                };
-                const parallelResults = await Promise.all(fetchPromises.map(processPromise));
-                const firstError = parallelResults.find(r => r.error);
-                if (firstError) { throw new Error(firstError.error); }
-                results.push(...parallelResults);
+                spinner.classList.add('hidden');
+                btnText.textContent = '生成';
+                btn.disabled = false;
             }
-            clearTimeout(overallTimeoutId);
-            return results.map(data => data.imageUrl);
-        } catch (error) {
-            clearTimeout(overallTimeoutId);
-            if (error.name === 'AbortError') { throw new Error('生成超时，请稍后再试。'); }
-            throw error;
+        });
+    }
+
+    function getUploadedImages() {
+        // 返回已上传的图片数据
+        const images = [];
+        const thumbnails = document.querySelectorAll('.thumbnail');
+        thumbnails.forEach(img => {
+            images.push(img.src);
+        });
+        return images;
+    }
+
+    function displayResults(images) {
+        mainResultImage.innerHTML = '';
+        resultThumbnails.innerHTML = '';
+
+        if (images && images.length > 0) {
+            // 显示主图
+            const mainImg = document.createElement('img');
+            mainImg.src = images[0];
+            mainImg.alt = '生成结果';
+            mainImg.addEventListener('click', () => openFullscreen(images[0]));
+            mainResultImage.appendChild(mainImg);
+
+            // 显示缩略图
+            images.forEach((image, index) => {
+                const thumb = document.createElement('img');
+                thumb.src = image;
+                thumb.className = 'result-thumb';
+                if (index === 0) thumb.classList.add('active');
+                thumb.addEventListener('click', () => {
+                    mainImg.src = image;
+                    document.querySelectorAll('.result-thumb').forEach(t => t.classList.remove('active'));
+                    thumb.classList.add('active');
+                });
+                resultThumbnails.appendChild(thumb);
+            });
+        } else {
+            mainResultImage.innerHTML = '<p>暂无生成结果</p>';
         }
     }
 
-    function displayResults(imageUrls) {
-        if (!imageUrls || imageUrls.length === 0 || !imageUrls[0]) { updateResultStatus("模型没有返回有效的图片URL。"); return; }
-        mainResultImageContainer.innerHTML = ''; resultThumbnailsContainer.innerHTML = '';
-        const mainImg = document.createElement('img');
-        mainImg.src = imageUrls[0];
-        mainImg.onclick = () => openModal(mainImg.src);
-        mainResultImageContainer.appendChild(mainImg);
-        if (imageUrls.length > 1) {
-            imageUrls.forEach((url, index) => {
-                const thumbImg = document.createElement('img');
-                thumbImg.src = url;
-                thumbImg.classList.add('result-thumb');
-                if (index === 0) { thumbImg.classList.add('active'); }
-                thumbImg.addEventListener('click', () => { mainImg.src = thumbImg.src; document.querySelectorAll('.result-thumb').forEach(t => t.classList.remove('active')); thumbImg.classList.add('active'); });
-                resultThumbnailsContainer.appendChild(thumbImg);
+    // ============== 提示词优化功能 ==============
+    function initPromptOptimization() {
+        // 绑定优化按钮点击事件
+        optimizeButtons.forEach(button => {
+            button.addEventListener('click', () => handleOptimizeButtonClick(button));
+        });
+
+        // 绑定空格触发事件
+        bindSpaceTriggerEvents();
+
+        // 加载角色提示词
+        loadSystemPrompt();
+    }
+
+    let systemPrompt = '';
+    
+    async function loadSystemPrompt() {
+        try {
+            const response = await fetch('./prompt_system.txt');
+            if (response.ok) {
+                systemPrompt = await response.text();
+            } else {
+                // 如果无法加载文件，使用默认提示词
+                systemPrompt = `你是一位专业的电商产品主图提示词优化专家，专门负责优化AI图像生成的提示词。
+
+## 你的任务
+将用户输入的基础提示词进行专业优化扩写，重点关注电商产品主图的视觉效果。
+
+## 优化维度
+1. **产品特征**：详细描述产品的材质、质感、细节
+2. **光线效果**：专业摄影级别的光线设置
+3. **背景设计**：简洁专业的背景或场景设计
+4. **构图布局**：适合电商展示的构图
+5. **质感提升**：突出产品的高端质感
+
+## 输出要求
+- 保持原意的基础上，大幅扩展和细化
+- 使用丰富的描述性词汇
+- 确保每个维度都有具体描述
+- 如果输入是中文，优化后如果是flux/krea等模型，请提供英文版本
+- 直接输出优化后的提示词，不需要解释`;
+            }
+        } catch (error) {
+            console.error('加载角色提示词失败:', error);
+            systemPrompt = '你是一位专业的提示词优化专家。';
+        }
+    }
+
+    async function handleOptimizeButtonClick(button) {
+        const model = button.getAttribute('data-model');
+        const input = getPromptInputByModel(model);
+        
+        if (!input || !input.value.trim()) {
+            showToast('请先输入提示词内容', 'warn');
+            return;
+        }
+
+        try {
+            setButtonLoading(button, true);
+            showToast('正在优化提示词...', 'info');
+            
+            const optimized = await optimizePrompt(input.value.trim(), model);
+            
+            if (optimized && optimized !== input.value.trim()) {
+                input.value = optimized;
+                input.dispatchEvent(new Event('input'));
+                showToast('优化成功！', 'success');
+            } else {
+                showToast('优化结果与原内容相同', 'info');
+            }
+            
+        } catch (error) {
+            console.error('优化失败:', error);
+            showToast('优化失败，请重试', 'error');
+        } finally {
+            setButtonLoading(button, false);
+        }
+    }
+
+    function getPromptInputByModel(model) {
+        switch (model) {
+            case 'chatgpt':
+                return promptInputChatGPT;
+            case 'nanobanana':
+                return promptInputNanoBanana;
+            case 'modelscope-positive':
+                return promptInputPositive;
+            case 'modelscope-negative':
+                return promptInputNegative;
+            default:
+                return promptInputPositive;
+        }
+    }
+
+    function setButtonLoading(button, loading) {
+        const icon = button.querySelector('.optimize-icon');
+        const text = button.querySelector('.optimize-text');
+        
+        if (loading) {
+            button.classList.add('loading');
+            button.disabled = true;
+            icon.textContent = '⏳';
+        } else {
+            button.classList.remove('loading');
+            button.disabled = false;
+            icon.textContent = '✨';
+            text.textContent = '提示词优化';
+        }
+    }
+
+    async function optimizePrompt(prompt, model) {
+        // 首先尝试API优化
+        try {
+            return await optimizeWithAPI(prompt, model);
+        } catch (error) {
+            console.error('API优化失败，使用本地优化:', error);
+            return optimizeLocally(prompt, model);
+        }
+    }
+
+    async function optimizeWithAPI(prompt, model) {
+        const apiKey = state.apiKeys.openrouter;
+        if (!apiKey) {
+            throw new Error('未配置OpenRouter API密钥');
+        }
+
+        const messages = [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `请优化这个提示词: ${prompt}` }
+        ];
+
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+                'HTTP-Referer': window.location.origin,
+                'X-Title': 'RTPic Prompt Optimization'
+            },
+            body: JSON.stringify({
+                model: 'anthropic/claude-3.5-sonnet',
+                messages: messages,
+                max_tokens: 1000,
+                temperature: 0.7
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`API调用失败: ${response.status}`);
+        }
+
+        const data = await response.json();
+        let optimized = data.choices[0]?.message?.content?.trim();
+
+        // 如果是flux/krea等模型，需要翻译成英文
+        if (['MusePublic/489_ckpt_FLUX_1', 'MusePublic/FLUX.1-Kontext-Dev', 'black-forest-labs/FLUX.1-Krea-dev'].includes(model)) {
+            optimized = await translateToEnglish(optimized);
+        }
+
+        return optimized;
+    }
+
+    async function translateToEnglish(text) {
+        try {
+            const response = await fetch('https://api-free.deepl.com/v2/translate', {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'DeepL-Auth-Key YOUR_API_KEY', // 需要替换为实际的API key
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: `text=${encodeURIComponent(text)}&target_lang=EN`
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                return data.translations[0]?.text || text;
+            } else {
+                // 如果翻译API失败，返回原文
+                console.warn('翻译失败，返回原文');
+                return text;
+            }
+        } catch (error) {
+            console.error('翻译失败:', error);
+            return text; // 返回原文
+        }
+    }
+
+    function optimizeLocally(prompt, model) {
+        // 本地优化逻辑
+        let optimized = prompt;
+
+        // 添加质量关键词
+        if (['chatgpt', 'nanobanana'].includes(model)) {
+            // 中文模型优化
+            if (!prompt.includes('高清')) optimized += '，高清细节，专业摄影质感';
+            if (!prompt.includes('4K')) optimized += '，4K超清画质';
+        } else {
+            // 英文模型优化
+            const qualityKeywords = ['masterpiece', 'best quality', 'highly detailed', '8k resolution', 'professional photography'];
+            qualityKeywords.forEach(keyword => {
+                if (!optimized.includes(keyword)) {
+                    optimized += `, ${keyword}`;
+                }
             });
         }
+
+        // 添加构图建议
+        const compositionTerms = ['professional composition', 'perfect lighting', 'clean background'];
+        if (!optimized.includes('composition')) {
+            optimized += `, ${compositionTerms[Math.floor(Math.random() * compositionTerms.length)]}`;
+        }
+
+        return optimized;
     }
 
-    function updateResultStatus(text) { mainResultImageContainer.innerHTML = `<p>${text}</p>`; resultThumbnailsContainer.innerHTML = ''; }
-    function updateResultStatusWithSpinner(text) { mainResultImageContainer.innerHTML = `<div class="loading-spinner"></div><p>${text}</p>`; resultThumbnailsContainer.innerHTML = ''; }
-    
-    function setLoading(isLoading, btn, btnText, spinner) {
-        btn.disabled = isLoading;
-        btnText.textContent = isLoading ? '正在生成...' : '生成';
-        spinner.classList.toggle('hidden', !isLoading);
+    // ============== 空格触发功能 ==============
+    function bindSpaceTriggerEvents() {
+        const promptInputs = [
+            promptInputChatGPT,
+            promptInputNanoBanana,
+            promptInputPositive,
+            promptInputNegative
+        ].filter(input => input);
+
+        promptInputs.forEach(input => {
+            let lastKeyTime = 0;
+            const SPACE_DELAY = 500; // 500ms内连续按空格视为连续操作
+
+            input.addEventListener('keydown', (e) => {
+                const currentTime = Date.now();
+                
+                if (e.key === ' ') {
+                    if (currentTime - lastKeyTime < SPACE_DELAY) {
+                        state.spaceCount++;
+                    } else {
+                        state.spaceCount = 1;
+                    }
+                    lastKeyTime = currentTime;
+
+                    // 检测到连续三个空格
+                    if (state.spaceCount === 3) {
+                        e.preventDefault();
+                        triggerSpaceOptimization(input);
+                        state.spaceCount = 0;
+                    }
+                } else {
+                    state.spaceCount = 0;
+                }
+            });
+        });
     }
 
-    function fileToBase64(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); }); }
+    function triggerSpaceOptimization(input) {
+        // 显示激活提示
+        showSpaceFeedback();
+        
+        // 自动触发优化
+        setTimeout(() => {
+            const model = getModelByInputId(input.id);
+            const button = document.querySelector(`[data-model="${model}"]`);
+            if (button && input.value.trim()) {
+                handleOptimizeButtonClick(button);
+            }
+        }, 500);
+    }
+
+    function showSpaceFeedback() {
+        spaceFeedback.classList.remove('hidden');
+        setTimeout(() => {
+            spaceFeedback.classList.add('hidden');
+        }, 1500);
+    }
+
+    function getModelByInputId(inputId) {
+        switch (inputId) {
+            case 'prompt-input-chatgpt':
+                return 'chatgpt';
+            case 'prompt-input-nanobanana':
+                return 'nanobanana';
+            case 'prompt-input-positive':
+                return 'modelscope-positive';
+            case 'prompt-input-negative':
+                return 'modelscope-negative';
+            default:
+                return 'chatgpt';
+        }
+    }
+
+    // ============== 消息提示功能 ==============
+    function showToast(message, type = 'info', duration = 3000) {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        
+        optimizeToastContainer.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.animation = 'toastSlideOut 0.3s ease-in forwards';
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    optimizeToastContainer.removeChild(toast);
+                }
+            }, 300);
+        }, duration);
+    }
+
+    // ============== 全屏预览功能 ==============
+    function initFullscreenModal() {
+        closeBtn.addEventListener('click', closeFullscreen);
+        fullscreenModal.addEventListener('click', (e) => {
+            if (e.target === fullscreenModal) {
+                closeFullscreen();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeFullscreen();
+            }
+        });
+    }
+
+    function openFullscreen(imageSrc) {
+        modalImage.src = imageSrc;
+        fullscreenModal.classList.remove('hidden');
+    }
+
+    function closeFullscreen() {
+        fullscreenModal.classList.add('hidden');
+        modalImage.src = '';
+    }
+
+    // ============== 参数设置功能 ==============
+    function initParameterSettings() {
+        const seedInput = document.getElementById('seed-input');
+        const stepsInput = document.getElementById('steps-input');
+        const guidanceInput = document.getElementById('guidance-input');
+        const sizeSelect = document.getElementById('size-select');
+        const countButtons = document.querySelectorAll('.count-btn');
+
+        // 随机种子按钮
+        if (seedInput) {
+            seedInput.addEventListener('click', () => {
+                if (seedInput.value === '-1') {
+                    seedInput.value = Math.floor(Math.random() * 1000000);
+                } else {
+                    seedInput.value = '-1';
+                }
+            });
+        }
+
+        // 数量选择按钮
+        countButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                countButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+
+        // 参数变化时自动保存
+        [seedInput, stepsInput, guidanceInput, sizeSelect].forEach(input => {
+            if (input) {
+                input.addEventListener('change', () => {
+                    saveModelState(state.currentModel);
+                });
+            }
+        });
+    }
+
+    // ============== 初始化应用 ==============
+    async function init() {
+        try {
+            // 初始化各个功能模块
+            initThemeToggle();
+            initModelSelector();
+            initApiKeyManagement();
+            initImageUpload();
+            initGenerateButtons();
+            initPromptOptimization();
+            initFullscreenModal();
+            initParameterSettings();
+
+            console.log('RTPic 应用初始化完成');
+        } catch (error) {
+            console.error('应用初始化失败:', error);
+            showToast('应用初始化失败', 'error');
+        }
+    }
+
+    // 启动应用
+    await init();
+
+    // ============== 工具函数 ==============
     
-    initialize();
+    // 格式化文件大小
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // 防抖函数
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // 节流函数
+    function throttle(func, limit) {
+        let inThrottle;
+        return function() {
+            const args = arguments;
+            const context = this;
+            if (!inThrottle) {
+                func.apply(context, args);
+                inThrottle = true;
+                setTimeout(() => inThrottle = false, limit);
+            }
+        };
+    }
+
 });

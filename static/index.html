@@ -4,144 +4,281 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>融图AI-生图工具</title>
-    <link rel="icon" href="/xiguadepi.jpg" type="image/jpg">
+    <link rel="icon" href="/xiguadepi.jpg">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- 全屏预览 Modal -->
-    <div id="fullscreen-modal" class="hidden">
-        <span class="close-btn">&times;</span>
-        <img id="modal-image" src="" alt="全屏预览">
-    </div>
+    <div class="container">
+        <!-- 头部标题和主题切换 -->
+        <header>
+            <h1>🎨 AI图片生成中心</h1>
+            <button id="theme-toggle-btn" aria-label="切换主题">
+                <svg class="sun-icon" viewBox="0 0 24 24" width="24" height="24">
+                    <path d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm0 1.636a8.114 8.114 0 1 0 0 16.228 8.114 8.114 0 0 0 0-16.228z"/>
+                    <path d="M12 7.25a.75.75 0 0 1 .75.75v3.25H16a.75.75 0 0 1 0 1.5h-3.25V15a.75.75 0 0 1-1.5 0v-2.75H8a.75.75 0 0 1 0-1.5h2.75V8a.75.75 0 0 1 .75-.75z"/>
+                </svg>
+                <svg class="moon-icon" viewBox="0 0 24 24" width="24" height="24">
+                    <path d="M12.74 5.47a8.25 8.25 0 1 1-9.9 9.9 8.2 8.2 0 0 0 9.9-9.9z"/>
+                </svg>
+            </button>
+        </header>
 
-    <!-- 主题切换按钮 -->
-    <button id="theme-toggle-btn" aria-label="切换主题">
-        <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
-        <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-    </button>
+        <!-- 模型选择器 -->
+        <section class="model-selector">
+            <div class="model-selector-container">
+                <div class="model-card active" data-model="chatgpt">
+                    <span class="model-name">ChatGPT-5</span>
+                </div>
+                <div class="model-card" data-model="nanobanana">
+                    <span class="model-name">Nano Banana</span>
+                </div>
+                <div class="model-card" data-model="Qwen/Qwen-Image">
+                    <span class="model-name">Qwen-Image</span>
+                </div>
+                <div class="model-card" data-model="MusePublic/489_ckpt_FLUX_1">
+                    <span class="model-name">Flux</span>
+                </div>
+                <div class="model-card" data-model="MusePublic/FLUX.1-Kontext-Dev">
+                    <span class="model-name">Kontext</span>
+                </div>
+                <div class="model-card" data-model="black-forest-labs/FLUX.1-Krea-dev">
+                    <span class="model-name">Krea</span>
+                </div>
+            </div>
+        </section>
 
-    <h1 class="title">融图AI-生图工具</h1>
-
-    <!-- 模型选择器（调整顺序：ChatGPT → Nano Banana → Qwen-Image → Flux → Kontext → Krea） -->
-    <div class="model-selector-container">
-        <div class="model-card active" data-model="chatgpt">ChatGPT-5</div>
-        <div class="model-card" data-model="nanobanana">Nano Banana</div>
-        <div class="model-card" data-model="Qwen/Qwen-Image">Qwen-Image</div>
-        <div class="model-card" data-model="MusePublic/489_ckpt_FLUX_1">Flux</div>
-        <div class="model-card" data-model="MusePublic/FLUX.1-Kontext-Dev">Kontext</div>
-        <div class="model-card" data-model="black-forest-labs/FLUX.1-Krea-dev">Krea</div>
-    </div>
-
-    <div class="main-container">
-        <div class="controls-container">
-
-            <!-- ======================================================= -->
-            <!-- [修改 1] ChatGPT 的控制面板 (参考 Nano Banana 设计)   -->
-            <!-- ======================================================= -->
-            <div id="chatgpt-controls" class="hidden">
+        <!-- 控制面板容器 -->
+        <main class="controls-container">
+            <!-- ChatGPT控制面板 -->
+            <div id="chatgpt-controls" class="control-panel">
+                <!-- API密钥输入 -->
                 <div class="api-key-section">
-                    <h2>设置 <span class="prompt-remark">(请注意目前调用的是付费的ChatGPT-5模型)</span></h2>
-                    <input type="password" id="api-key-input-openai" placeholder="输入你的 OpenAI API 密钥 (必填)">
+                    <label>OpenAI API 密钥</label>
+                    <input 
+                        type="password" 
+                        id="api-key-input-openai" 
+                        placeholder="输入你的 OpenAI API 密钥 (必填)"
+                    >
                 </div>
-                <div class="upload-section">
-                    <h2>1. 上传图片 (可选)</h2>
-                    <div class="upload-area">
-                        <input type="file" id="image-upload-chatgpt" accept="image/*" multiple>
-                        <label for="image-upload-chatgpt">
-                            <p>点击、拖拽或粘贴</p>
-                            <span>支持多张图片</span>
-                        </label>
-                    </div>
-                    <div id="thumbnails-container-chatgpt"></div>
-                </div>
+
+                <!-- 提示词输入区域 -->
                 <div class="prompt-section">
-                    <h2>2. 输入提示词 <span id="chatgpt-prompt-remark" class="prompt-remark">(支持中文提示词)</span></h2>
-                    <textarea id="prompt-input-chatgpt" placeholder="例如：一只穿着超级英雄斗篷的猫，电影级灯光"></textarea>
+                    <h2>2. 输入提示词</h2>
+                    <span id="chatgpt-prompt-remark" class="prompt-remark">(支持中文提示词)</span>
+                    
+                    <!-- 提示词输入框 -->
+                    <div class="prompt-input-container">
+                        <textarea 
+                            id="prompt-input-chatgpt" 
+                            placeholder="例如：一只穿着超级英雄斗篷的猫，电影级灯光"
+                            rows="4"
+                        ></textarea>
+                        
+                        <!-- 提示词优化按钮 -->
+                        <button class="prompt-optimize-btn" data-model="chatgpt" title="点击优化提示词">
+                            <span class="optimize-icon">✨</span>
+                            <span class="optimize-text">提示词优化</span>
+                        </button>
+                    </div>
                 </div>
-                <!-- ChatGPT 专用的生成按钮 -->
-                <button class="generate-btn">
-                    <span class="btn-text">生成</span>
-                    <span class="spinner hidden"></span>
-                </button>
+
+                <!-- 图片上传区域 -->
+                <div class="upload-section">
+                    <label for="image-upload-chatgpt">上传图片 (可选)</label>
+                    <div class="upload-area">
+                        <p>点击、拖拽或粘贴</p>
+                        <span>支持多张图片</span>
+                        <input 
+                            type="file" 
+                            id="image-upload-chatgpt" 
+                            accept="image/*" 
+                            multiple
+                            style="display: none;"
+                        >
+                    </div>
+                    <div id="thumbnails-container-chatgpt" class="thumbnails-container"></div>
+                </div>
+
+                <!-- 生成按钮 -->
+                <div class="generate-section">
+                    <button class="generate-btn">
+                        <span class="btn-text">生成</span>
+                        <span class="spinner hidden"></span>
+                    </button>
+                </div>
             </div>
 
-            <!-- ======================================================= -->
-            <!-- [修改 1] nano banana 的控制面板 (生成按钮移入)          -->
-            <!-- ======================================================= -->
-            <div id="nanobanana-controls" class="hidden">
+            <!-- Nano Banana控制面板 -->
+            <div id="nanobanana-controls" class="control-panel hidden">
+                <!-- API密钥输入 -->
                 <div class="api-key-section">
-                    <h2>设置 <span class="prompt-remark">(请注意目前调用的是付费的Nano Banana模型)</span></h2>
-                    <input type="password" id="api-key-input-openrouter" placeholder="输入你的 OpenRouter API 密钥 (必填)">
+                    <label>OpenRouter API 密钥</label>
+                    <input 
+                        type="password" 
+                        id="api-key-input-openrouter" 
+                        placeholder="输入你的 OpenRouter API 密钥 (必填)"
+                    >
                 </div>
-                <div class="upload-section">
-                    <h2>1. 上传图片 (可选)</h2>
-                    <div class="upload-area">
-                        <input type="file" id="image-upload" accept="image/*" multiple>
-                        <label for="image-upload">
-                            <p>点击、拖拽或粘贴</p>
-                            <span>支持多张图片</span>
-                        </label>
-                    </div>
-                    <div id="thumbnails-container"></div>
-                </div>
+
+                <!-- 提示词输入区域 -->
                 <div class="prompt-section">
-                    <h2>2. 输入提示词 <span id="nanobanana-prompt-remark" class="prompt-remark"></span></h2>
-                    <textarea id="prompt-input-nanobanana" placeholder="例如：一只穿着超级英雄斗篷的猫，电影级灯光"></textarea>
+                    <h2>2. 输入提示词</h2>
+                    <span id="nanobanana-prompt-remark" class="prompt-remark"></span>
+                    
+                    <!-- 提示词输入框 -->
+                    <div class="prompt-input-container">
+                        <textarea 
+                            id="prompt-input-nanobanana" 
+                            placeholder="例如：一只穿着超级英雄斗篷的猫，电影级灯光"
+                            rows="4"
+                        ></textarea>
+                        
+                        <!-- 提示词优化按钮 -->
+                        <button class="prompt-optimize-btn" data-model="nanobanana" title="点击优化提示词">
+                            <span class="optimize-icon">✨</span>
+                            <span class="optimize-text">提示词优化</span>
+                        </button>
+                    </div>
                 </div>
-                <!-- Nano Banana 专用的生成按钮 -->
-                <button class="generate-btn">
-                    <span class="btn-text">生成</span>
-                    <span class="spinner hidden"></span>
-                </button>
+
+                <!-- 图片上传区域 -->
+                <div class="upload-section">
+                    <label for="image-upload">上传图片 (可选)</label>
+                    <div class="upload-area">
+                        <p>点击、拖拽或粘贴</p>
+                        <span>支持多张图片</span>
+                        <input 
+                            type="file" 
+                            id="image-upload" 
+                            accept="image/*" 
+                            multiple
+                            style="display: none;"
+                        >
+                    </div>
+                    <div id="thumbnails-container" class="thumbnails-container"></div>
+                </div>
+
+                <!-- 生成按钮 -->
+                <div class="generate-section">
+                    <button class="generate-btn">
+                        <span class="btn-text">生成</span>
+                        <span class="spinner hidden"></span>
+                    </button>
+                </div>
             </div>
 
-            <!-- ======================================================= -->
-            <!-- [修改 1] ModelScope 模型的控制面板 (生成按钮移入)       -->
-            <!-- ======================================================= -->
-            <div id="modelscope-controls" class="hidden">
+            <!-- ModelScope控制面板 -->
+            <div id="modelscope-controls" class="control-panel hidden">
+                <!-- API密钥输入 -->
                 <div class="api-key-section">
-                    <h2>设置</h2>
-                    <input type="password" id="api-key-input-modelscope" placeholder="请填入 Modelscope 的 API Key">
+                    <label>ModelScope API 密钥</label>
+                    <input 
+                        type="password" 
+                        id="api-key-input-modelscope" 
+                        placeholder="请填入 Modelscope 的 API Key"
+                    >
                 </div>
+
+                <!-- 正向提示词输入区域 -->
                 <div class="prompt-section">
-                    <h2>正向提示词 <span id="modelscope-prompt-remark" class="prompt-remark"></span></h2>
-                    <textarea id="prompt-input-positive" placeholder="例如：A golden cat, masterpiece, best quality"></textarea>
+                    <h2>正向提示词</h2>
+                    <span id="modelscope-prompt-remark" class="prompt-remark"></span>
+                    
+                    <!-- 正向提示词输入框 -->
+                    <div class="prompt-input-container">
+                        <textarea 
+                            id="prompt-input-positive" 
+                            placeholder="例如：A golden cat, masterpiece, best quality"
+                            rows="4"
+                        ></textarea>
+                        
+                        <!-- 提示词优化按钮 -->
+                        <button class="prompt-optimize-btn" data-model="modelscope-positive" title="点击优化提示词">
+                            <span class="optimize-icon">✨</span>
+                            <span class="optimize-text">提示词优化</span>
+                        </button>
+                    </div>
                 </div>
+
+                <!-- 负向提示词输入区域 -->
                 <div class="prompt-section">
-                    <h2>负向提示词 <span id="modelscope-negative-prompt-remark" class="prompt-remark"></span></h2>
-                    <textarea id="prompt-input-negative" placeholder="例如：worst quality, low quality, normal quality"></textarea>
+                    <h2>负向提示词</h2>
+                    <span id="modelscope-negative-prompt-remark" class="prompt-remark"></span>
+                    
+                    <!-- 负向提示词输入框 -->
+                    <div class="prompt-input-container">
+                        <textarea 
+                            id="prompt-input-negative" 
+                            placeholder="例如：worst quality, low quality, normal quality"
+                            rows="4"
+                        ></textarea>
+                        
+                        <!-- 提示词优化按钮 -->
+                        <button class="prompt-optimize-btn" data-model="modelscope-negative" title="点击优化提示词">
+                            <span class="optimize-icon">✨</span>
+                            <span class="optimize-text">提示词优化</span>
+                        </button>
+                    </div>
                 </div>
-                <div class="settings-section">
-                    <div class="setting-item">
+
+                <!-- 高级参数设置 -->
+                <div class="advanced-settings">
+                    <h3>参数设置</h3>
+                    
+                    <!-- 分辨率选择 -->
+                    <div class="setting-group">
                         <label for="size-select">分辨率</label>
                         <select id="size-select">
-                            <option value="1328x1328">1:1 - 1328x1328</option>
-                            <option value="1664x928">16:9 - 1664x928</option>
-                            <option value="928x1664">9:16 - 928x1664</option>
-                            <option value="1472x1140">4:3 - 1472x1140</option>
-                            <option value="1140x1472">3:4 - 1140x1472</option>
-                            <option value="1584x1056">3:2 - 1584x1056</option>
-                            <option value="1056x1584">2:3 - 1056x1584</option>
+                            <option value="1328x1328">1328x1328 (1:1)</option>
+                            <option value="1664x928">1664x928 (16:9)</option>
+                            <option value="928x1664">928x1664 (9:16)</option>
+                            <option value="1472x1140">1472x1140 (4:3)</option>
+                            <option value="1140x1472">1140x1472 (3:4)</option>
+                            <option value="1584x1056">1584x1056 (3:2)</option>
+                            <option value="1056x1584">1056x1584 (2:3)</option>
                         </select>
                     </div>
-                    <div class="setting-item">
-                        <label for="steps-input">采样步数 <span class="param-note">(范围: 1-100, 默认: 30)</span></label>
-                        <input type="number" id="steps-input" value="30" data-min="1" data-max="100">
-                        <p class="error-message hidden"></p>
+
+                    <!-- 采样步数 -->
+                    <div class="setting-group">
+                        <label for="steps-input">采样步数</label>
+                        <input 
+                            type="number" 
+                            id="steps-input" 
+                            value="30" 
+                            min="1" 
+                            max="100"
+                        >
                     </div>
-                    <div class="setting-item">
-                        <label for="guidance-input">引导系数 <span class="param-note">(范围: 1.5-20, 默认: 3.5)</span></label>
-                        <input type="number" id="guidance-input" value="3.5" step="0.1" data-min="1.5" data-max="20">
-                        <p class="error-message hidden"></p>
+
+                    <!-- 引导系数 -->
+                    <div class="setting-group">
+                        <label for="guidance-input">引导系数</label>
+                        <input 
+                            type="number" 
+                            id="guidance-input" 
+                            value="3.5" 
+                            step="0.1" 
+                            min="1.5" 
+                            max="20"
+                        >
                     </div>
-                    <div class="setting-item">
-                        <label for="seed-input">随机种子 <span class="param-note">(范围: >= -1, 默认: -1)</span></label>
-                        <input type="number" id="seed-input" value="-1" min="-1" data-min="-1">
-                        <p class="error-message hidden"></p>
+
+                    <!-- 随机种子 -->
+                    <div class="setting-group">
+                        <label for="seed-input">随机种子</label>
+                        <input 
+                            type="number" 
+                            id="seed-input" 
+                            value="-1" 
+                            min="-1"
+                        >
                     </div>
-                    <div class="setting-item count-selector">
+
+                    <!-- 生成数量选择 -->
+                    <div class="setting-group">
                         <label>生成数量</label>
-                        <div class="count-buttons-container">
+                        <div class="count-selector">
                             <button class="count-btn active" data-count="1">1</button>
                             <button class="count-btn" data-count="2">2</button>
                             <button class="count-btn" data-count="3">3</button>
@@ -149,22 +286,41 @@
                         </div>
                     </div>
                 </div>
-                 <!-- ModelScope 专用的生成按钮 -->
-                <button class="generate-btn">
-                    <span class="btn-text">生成</span>
-                    <span class="spinner hidden"></span>
-                </button>
-            </div>
-        </div>
 
-        <div class="result-container">
-            <h2>生成结果</h2>
-            <div id="main-result-image">
-                <p>生成的图片将显示在这里</p>
+                <!-- 生成按钮 -->
+                <div class="generate-section">
+                    <button class="generate-btn">
+                        <span class="btn-text">生成</span>
+                        <span class="spinner hidden"></span>
+                    </button>
+                </div>
             </div>
-            <div id="result-thumbnails"></div>
+        </main>
+
+        <!-- 结果展示区域 -->
+        <section class="result-container">
+            <h2>生成结果</h2>
+            <div id="main-result-image" class="main-result-image"></div>
+            <div id="result-thumbnails" class="result-thumbnails"></div>
+        </section>
+    </div>
+
+    <!-- 全屏预览模态框 -->
+    <div id="fullscreen-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <img id="modal-image" src="" alt="Fullsize preview">
         </div>
     </div>
+
+    <!-- 优化消息提示 -->
+    <div id="optimize-toast-container" class="toast-container"></div>
+
+    <!-- 空格激活提示 -->
+    <div id="space-trigger-feedback" class="space-feedback hidden">
+        <span>🚀 激活提示词优化</span>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>
