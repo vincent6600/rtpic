@@ -369,9 +369,10 @@ select {
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
-/* ======================================= */
-/* 添加提示词优化功能的样式 (开始)        */
-/* ======================================= */
+
+/* ======================================================= */
+/* 提示词优化功能样式                                      */
+/* ======================================================= */
 
 /* 提示词优化按钮样式 */
 .prompt-optimize-btn {
@@ -411,7 +412,7 @@ select {
     font-size: 1rem;
 }
 
-/* 优化模态框样式 */
+/* 模态框基础样式 */
 .modal {
     position: fixed;
     z-index: 10000;
@@ -420,166 +421,208 @@ select {
     width: 100%;
     height: 100%;
     overflow: auto;
-    background-color: rgba(0, 0, 0, 0.6);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    animation: fadeIn 0.3s ease;
+    background-color: rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.modal.show {
+    opacity: 1;
+    visibility: visible;
 }
 
 .modal-content {
+    position: relative;
     background-color: var(--surface-color);
-    border-radius: 16px;
-    padding: 2rem;
-    max-width: 600px;
+    margin: 5% auto;
+    padding: 20px;
+    border-radius: 12px;
     width: 90%;
+    max-width: 600px;
     max-height: 80vh;
     overflow-y: auto;
-    position: relative;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    animation: slideIn 0.3s ease;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    transform: translateY(-50px);
+    transition: transform 0.3s ease;
+}
+
+.modal.show .modal-content {
+    transform: translateY(0);
 }
 
 .modal-content .close-btn {
     position: absolute;
+    right: 15px;
     top: 15px;
-    right: 20px;
     color: var(--text-color-secondary);
-    font-size: 28px;
+    font-size: 24px;
     font-weight: bold;
-    transition: color 0.3s ease;
     cursor: pointer;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.3s ease;
 }
 
 .modal-content .close-btn:hover {
     color: var(--text-color-primary);
+    background-color: var(--highlight-bg-color);
 }
 
 .modal h3 {
-    margin-top: 0;
-    margin-bottom: 1.5rem;
+    margin: 0 0 20px 0;
     color: var(--text-color-primary);
-    font-size: 1.5rem;
+    font-size: 1.3rem;
     font-weight: 600;
 }
 
-/* 优化内容样式 */
+/* 优化内容区域 */
 .optimize-content {
-    margin-bottom: 2rem;
+    margin-bottom: 20px;
 }
 
 .original-prompt,
 .optimized-prompt {
-    margin-bottom: 1.5rem;
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: var(--input-bg-color);
+    border-radius: 8px;
+    border: 1px solid var(--surface-border-color);
 }
 
 .original-prompt h4,
 .optimized-prompt h4 {
-    margin-top: 0;
-    margin-bottom: 0.8rem;
-    color: var(--text-color-secondary);
+    margin: 0 0 10px 0;
+    color: var(--text-color-primary);
     font-size: 1rem;
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .original-prompt p,
 .optimized-prompt p {
-    background-color: var(--input-bg-color);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 1rem;
     margin: 0;
-    color: var(--text-color-primary);
-    font-size: 0.95rem;
-    line-height: 1.5;
+    color: var(--text-color-secondary);
+    line-height: 1.6;
+    font-size: 0.9rem;
     white-space: pre-wrap;
     word-wrap: break-word;
 }
 
-/* 模态框动作按钮 */
+/* 模态框操作按钮 */
 .modal-actions {
     display: flex;
-    gap: 1rem;
+    gap: 10px;
     justify-content: flex-end;
 }
 
-.btn-primary,
-.btn-secondary {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 8px;
-    font-size: 0.95rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
 .btn-primary {
-    background: linear-gradient(45deg, var(--gradient-mid), var(--gradient-end));
+    background: linear-gradient(45deg, var(--gradient-start), var(--gradient-mid));
     color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
 }
 
 .btn-primary:hover {
+    background: linear-gradient(45deg, var(--gradient-mid), var(--gradient-end));
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .btn-secondary {
-    background-color: var(--input-bg-color);
+    background-color: transparent;
     color: var(--text-color-secondary);
     border: 1px solid var(--border-color);
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
 }
 
 .btn-secondary:hover {
-    background-color: var(--input-hover-bg-color);
+    background-color: var(--highlight-bg-color);
     color: var(--text-color-primary);
 }
 
 /* 加载模态框样式 */
 .loading-modal {
     text-align: center;
-    padding: 3rem 2rem;
+    padding: 40px;
 }
 
-.loading-modal .loading-spinner {
-    margin: 0 auto 1.5rem auto;
+.loading-spinner {
     width: 40px;
     height: 40px;
-    border-width: 4px;
+    border: 4px solid var(--surface-border-color);
+    border-top: 4px solid var(--gradient-mid);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 .loading-modal p {
     color: var(--text-color-secondary);
-    font-size: 1.1rem;
+    font-size: 1rem;
     margin: 0;
 }
 
-/* 动画效果 */
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+/* Toast 通知样式 */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10001;
+    pointer-events: none;
 }
 
-@keyframes slideIn {
-    from { 
-        opacity: 0;
-        transform: translateY(-30px) scale(0.95);
-    }
-    to { 
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
+.toast {
+    background-color: var(--surface-color);
+    color: var(--text-color-primary);
+    padding: 12px 20px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    border-left: 4px solid var(--gradient-mid);
+    pointer-events: auto;
+}
+
+.toast.show {
+    transform: translateX(0);
+}
+
+.toast.success {
+    border-left-color: #10b981;
+}
+
+.toast.error {
+    border-left-color: var(--error-color);
+}
+
+.toast.info {
+    border-left-color: var(--gradient-mid);
 }
 
 /* 响应式设计 */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
     .modal-content {
         width: 95%;
-        padding: 1.5rem;
-        margin: 1rem;
+        margin: 10% auto;
     }
     
     .modal-actions {
@@ -589,10 +632,5 @@ select {
     .btn-primary,
     .btn-secondary {
         width: 100%;
-        justify-content: center;
     }
 }
-
-/* ======================================= */
-/* 添加提示词优化功能的样式 (结束)        */
-/* ======================================= */
