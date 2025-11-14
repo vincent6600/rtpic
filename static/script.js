@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.log('点击下载按钮，主图片元素:', currentImage);
             if (currentImage && currentImage.src) {
                 console.log('开始下载图片:', currentImage.src);
-                downloadImage(currentImage.src, `generated-image-${Date.now()}.jpg`);
+                downloadImage(currentImage.src, `generated-image-${Date.now()}.png`);
             } else {
                 console.error('未找到可下载的图片或图片src为空');
                 showDownloadError('未找到可下载的图片');
@@ -195,7 +195,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         resultThumbnailsContainer.addEventListener('contextmenu', (e) => {
             if (e.target.tagName === 'IMG') {
                 e.preventDefault();
-                downloadImage(e.target.src, `generated-thumb-${Date.now()}.jpg`);
+                downloadImage(e.target.src, `generated-thumb-${Date.now()}.png`);
             }
         });
 
@@ -203,34 +203,98 @@ document.addEventListener('DOMContentLoaded', async () => {
         mainResultImageContainer.addEventListener('contextmenu', (e) => {
             if (e.target.tagName === 'IMG') {
                 e.preventDefault();
-                downloadImage(e.target.src, `generated-image-${Date.now()}.jpg`);
+                downloadImage(e.target.src, `generated-image-${Date.now()}.png`);
             }
         });
     }
 
     function downloadImage(url, filename) {
         console.log('开始下载图片:', url, '文件名:', filename);
+        console.log('当前模型:', currentModel);
+        
+        // 检查URL是否有效
+        if (!url || url.trim() === '') {
+            console.error('图片URL为空:', url);
+            showDownloadError('图片URL无效');
+            return;
+        }
+        
+        // 检查图片元素状态
+        const currentImage = mainResultImageContainer.querySelector('img');
+        if (currentImage) {
+            console.log('当前图片元素信息:', {
+                src: currentImage.src,
+                naturalWidth: currentImage.naturalWidth,
+                naturalHeight: currentImage.naturalHeight,
+                complete: currentImage.complete,
+                offsetWidth: currentImage.offsetWidth,
+                offsetHeight: currentImage.offsetHeight
+            });
+        } else {
+            console.warn('未找到图片元素');
+        }
+        
+        // 记录所有可能的图片源
+        const allImages = document.querySelectorAll('#main-result-image img, #result-thumbnails img');
+        console.log('页面中的所有图片元素:', allImages.length);
+        
         fetch(url)
             .then(response => {
                 console.log('Fetch响应状态:', response.status, response.statusText);
+                console.log('Fetch响应头:', Object.fromEntries(response.headers.entries()));
+                
                 if (!response.ok) {
-                    throw new Error(`下载失败: HTTP ${response.status} ${response.statusText}`);
+                    const errorText = response.text();
+                    console.error('HTTP错误响应内容:', errorText);
+                    throw new Error(`下载失败: HTTP ${response.status} ${response.statusText} - ${errorText}`);
                 }
+                
+                const contentType = response.headers.get('content-type');
+                console.log('响应Content-Type:', contentType);
+                
+                if (!contentType || !contentType.startsWith('image/')) {
+                    console.warn('响应不是图片格式，内容类型:', contentType);
+                }
+                
                 return response.blob();
             })
             .then(blob => {
-                console.log('创建下载链接，文件大小:', blob.size, '字节');
+                console.log('Blob创建成功:', {
+                    size: blob.size,
+                    type: blob.type
+                });
+                
+                if (blob.size === 0) {
+                    throw new Error('下载的图片文件为空');
+                }
+                
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
                 link.download = filename;
+                console.log('下载链接创建:', {
+                    href: link.href,
+                    download: link.download
+                });
+                
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                URL.revokeObjectURL(link.href);
+                
+                setTimeout(() => {
+                    URL.revokeObjectURL(link.href);
+                    console.log('Object URL已释放');
+                }, 100);
+                
                 showDownloadSuccess();
             })
             .catch(error => {
-                console.error('下载失败:', error);
+                console.error('下载失败详细信息:', {
+                    error: error,
+                    message: error.message,
+                    stack: error.stack,
+                    url: url,
+                    filename: filename
+                });
                 showDownloadError(error.message || '下载失败');
             });
     }
