@@ -51,7 +51,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const chatgptOptimizeBtn = document.getElementById('chatgpt-prompt-optimize-btn');
     const nanobananaOptimizeBtn = document.getElementById('nanobanana-prompt-optimize-btn');
     const modelscopeOptimizeBtn = document.getElementById('modelscope-prompt-optimize-btn');
-    const modelscopeNegativeOptimizeBtn = document.getElementById('modelscope-negative-prompt-optimize-btn');
 
     // --- 状态变量 ---
     let selectedFilesNano = [];
@@ -182,8 +181,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         // 下载按钮点击事件
         downloadBtn.addEventListener('click', () => {
             const currentImage = mainResultImageContainer.querySelector('img');
+            console.log('点击下载按钮，主图片元素:', currentImage);
             if (currentImage && currentImage.src) {
+                console.log('开始下载图片:', currentImage.src);
                 downloadImage(currentImage.src, `generated-image-${Date.now()}.jpg`);
+            } else {
+                console.error('未找到可下载的图片或图片src为空');
+                showDownloadError('未找到可下载的图片');
             }
         });
 
@@ -205,9 +209,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function downloadImage(url, filename) {
+        console.log('开始下载图片:', url, '文件名:', filename);
         fetch(url)
-            .then(response => response.blob())
+            .then(response => {
+                console.log('Fetch响应状态:', response.status, response.statusText);
+                if (!response.ok) {
+                    throw new Error(`下载失败: HTTP ${response.status} ${response.statusText}`);
+                }
+                return response.blob();
+            })
             .then(blob => {
+                console.log('创建下载链接，文件大小:', blob.size, '字节');
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
                 link.download = filename;
@@ -219,7 +231,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             })
             .catch(error => {
                 console.error('下载失败:', error);
-                showDownloadError();
+                showDownloadError(error.message || '下载失败');
             });
     }
 
@@ -249,10 +261,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 2000);
     }
 
-    function showDownloadError() {
+    function showDownloadError(message = '图片下载失败') {
         const hint = document.createElement('div');
         hint.className = 'download-error-hint';
-        hint.innerHTML = '❌ 图片下载失败';
+        hint.innerHTML = `❌ ${message}`;
         hint.style.cssText = `
             position: fixed;
             top: 20px;
@@ -281,10 +293,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         chatgptOptimizeBtn.addEventListener('click', () => optimizePrompt('chatgpt', promptChatGPTInput));
         nanobananaOptimizeBtn.addEventListener('click', () => optimizePrompt('nanobanana', promptNanoBananaInput));
         modelscopeOptimizeBtn.addEventListener('click', () => optimizePrompt('modelscope', promptPositiveInput));
-        modelscopeNegativeOptimizeBtn.addEventListener('click', () => optimizePrompt('modelscope', promptNegativeInput));
+
 
         // 连续输入三个空格触发优化
-        [promptChatGPTInput, promptNanoBananaInput, promptPositiveInput, promptNegativeInput].forEach(input => {
+        [promptChatGPTInput, promptNanoBananaInput, promptPositiveInput].forEach(input => {
             let lastInputTime = 0;
             let spaceCount = 0;
             
