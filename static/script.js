@@ -687,19 +687,107 @@ document.addEventListener('DOMContentLoaded', async () => {
     function displayResults(imageUrls) {
         if (!imageUrls || imageUrls.length === 0 || !imageUrls[0]) { updateResultStatus("模型没有返回有效的图片URL。"); return; }
         mainResultImageContainer.innerHTML = ''; resultThumbnailsContainer.innerHTML = '';
+        
+        // 创建主图片容器
+        const mainImageWrapper = document.createElement('div');
+        mainImageWrapper.className = 'main-image-wrapper';
+        
         const mainImg = document.createElement('img');
         mainImg.src = imageUrls[0];
+        mainImg.className = 'main-result-img';
         mainImg.onclick = () => openModal(mainImg.src);
-        mainResultImageContainer.appendChild(mainImg);
+        
+        // 创建下载按钮
+        const downloadBtn = document.createElement('button');
+        downloadBtn.className = 'download-btn';
+        downloadBtn.innerHTML = '📥 下载';
+        downloadBtn.onclick = () => downloadImage(imageUrls[0], `generated_image_${Date.now()}.png`, downloadBtn);
+        
+        mainImageWrapper.appendChild(mainImg);
+        mainImageWrapper.appendChild(downloadBtn);
+        mainResultImageContainer.appendChild(mainImageWrapper);
+        
         if (imageUrls.length > 1) {
             imageUrls.forEach((url, index) => {
+                const thumbWrapper = document.createElement('div');
+                thumbWrapper.className = 'thumb-wrapper';
+                
                 const thumbImg = document.createElement('img');
                 thumbImg.src = url;
-                thumbImg.classList.add('result-thumb');
+                thumbImg.className = 'result-thumb';
                 if (index === 0) { thumbImg.classList.add('active'); }
-                thumbImg.addEventListener('click', () => { mainImg.src = thumbImg.src; document.querySelectorAll('.result-thumb').forEach(t => t.classList.remove('active')); thumbImg.classList.add('active'); });
-                resultThumbnailsContainer.appendChild(thumbImg);
+                
+                // 为缩略图添加下载按钮
+                const thumbDownloadBtn = document.createElement('button');
+                thumbDownloadBtn.className = 'thumb-download-btn';
+                thumbDownloadBtn.innerHTML = '📥';
+                thumbDownloadBtn.onclick = (e) => { e.stopPropagation(); downloadImage(url, `generated_image_${Date.now()}_${index + 1}.png`, thumbDownloadBtn); };
+                
+                thumbImg.addEventListener('click', () => { 
+                    mainImg.src = thumbImg.src; 
+                    document.querySelectorAll('.result-thumb').forEach(t => t.classList.remove('active')); 
+                    thumbImg.classList.add('active');
+                    downloadBtn.onclick = () => downloadImage(url, `generated_image_${Date.now()}.png`, downloadBtn);
+                });
+                
+                thumbWrapper.appendChild(thumbImg);
+                thumbWrapper.appendChild(thumbDownloadBtn);
+                resultThumbnailsContainer.appendChild(thumbWrapper);
             });
+        }
+    }
+    
+    // 图片下载功能
+    async function downloadImage(imageUrl, filename, downloadBtn) {
+        try {
+            // 显示加载状态
+            if (downloadBtn) {
+                downloadBtn.disabled = true;
+                downloadBtn.classList.add('downloading');
+                downloadBtn.textContent = '⏳';
+            }
+            
+            // 显示加载提示
+            showToast('正在准备下载...', 'info');
+            
+            const response = await fetch(imageUrl);
+            if (!response.ok) {
+                throw new Error(`下载失败: ${response.status} ${response.statusText}`);
+            }
+            
+            const blob = await response.blob();
+            
+            // 检查是否为有效图片
+            if (!blob.type.startsWith('image/')) {
+                throw new Error('下载的不是有效的图片文件');
+            }
+            
+            const objectUrl = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = objectUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // 清理对象URL
+            setTimeout(() => {
+                URL.revokeObjectURL(objectUrl);
+            }, 100);
+            
+            showToast('图片下载成功！', 'success');
+            
+        } catch (error) {
+            console.error('下载错误:', error);
+            showToast('下载失败: ' + error.message, 'error');
+        } finally {
+            // 恢复按钮状态
+            if (downloadBtn) {
+                downloadBtn.disabled = false;
+                downloadBtn.classList.remove('downloading');
+                downloadBtn.innerHTML = downloadBtn.classList.contains('thumb-download-btn') ? '📥' : '📥 下载';
+            }
         }
     }
 
