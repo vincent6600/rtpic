@@ -1,4 +1,4 @@
- // --- START OF FILE main.ts ---
+// --- START OF FILE main.ts ---
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { serveDir } from "https://deno.land/std@0.224.0/http/file_server.ts";
@@ -210,12 +210,12 @@ serve(async (req) => {
                     return createJsonErrorResponse(`Model returned text instead of an image: "${result.content}"`, 400);
                 }
             } else if (model === 'chatgpt') {
-                const openaiApiKey = apikey || Deno.env.get("OPENAI_API_KEY");
-                if (!openaiApiKey) { return createJsonErrorResponse("OpenAI API key is not set.", 500); }
+                const openrouterApiKey = apikey || Deno.env.get("OPENROUTER_API_KEY");
+                if (!openrouterApiKey) { return createJsonErrorResponse("OpenRouter API key is not set.", 500); }
                 if (!prompt) { return createJsonErrorResponse("Prompt is required.", 400); }
                 
                 // 直接传递prompt和images到GPT-5 Image函数
-                const result = await callDALLE3(prompt, openaiApiKey, images || []);
+                const result = await callDALLE3(prompt, openrouterApiKey, images || []);
                 if (result.type === 'image') {
                     return new Response(JSON.stringify({ imageUrl: result.content }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
                 } else {
@@ -237,117 +237,6 @@ serve(async (req) => {
             }
         } catch (error) {
             console.error("Error handling /generate request:", error);
-            return createJsonErrorResponse(error.message, 500);
-        }
-    }
-
-    // =======================================================
-    // 提示词优化 API 端点
-    // =======================================================
-    if (pathname === "/prompt-optimize") {
-        try {
-            if (req.method !== "POST") {
-                return createJsonErrorResponse("Method not allowed. Use POST.", 405);
-            }
-
-            const requestData = await req.json();
-            const { prompt, targetModel, apiKey } = requestData;
-
-            if (!prompt || !targetModel) {
-                return createJsonErrorResponse("Prompt and targetModel are required.", 400);
-            }
-
-            const openrouterApiKey = apiKey || Deno.env.get("OPENROUTER_API_KEY");
-            if (!openrouterApiKey) {
-                return createJsonErrorResponse("OpenRouter API key is not set.", 500);
-            }
-
-            // 读取角色提示词文件
-            let systemPrompt = "";
-            try {
-                const roleFilePath = `${Deno.cwd()}/prompt-optimizer-role.txt`;
-                systemPrompt = await Deno.readTextFile(roleFilePath);
-            } catch (error) {
-                console.warn("Could not read prompt-optimizer-role.txt:", error);
-                // 如果文件读取失败，使用默认角色提示词
-                systemPrompt = "你是一位专业的电商产品主图提示词优化专家。请根据用户提供的原始提示词，结合产品特性和目标模型的要求，提供更精确、更有效的优化版本。";
-            }
-
-            // 调用 Claude 3.5 Sonnet 进行提示词优化
-            const optimizeResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${openrouterApiKey}`,
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    model: "anthropic/claude-3.5-sonnet",
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { 
-                            role: "user", 
-                            content: `请优化以下提示词，适配${targetModel}模型：\n\n原始提示词：${prompt}\n\n请直接返回优化后的提示词，不要添加任何解释或前缀。` 
-                        }
-                    ],
-                    max_tokens: 1000,
-                    temperature: 0.7
-                })
-            });
-
-            if (!optimizeResponse.ok) {
-                const errorBody = await optimizeResponse.text();
-                throw new Error(`OpenRouter Claude API error: ${optimizeResponse.status} ${optimizeResponse.statusText} - ${errorBody}`);
-            }
-
-            const optimizeData = await optimizeResponse.json();
-            let optimizedPrompt = optimizeData.choices?.[0]?.message?.content?.trim() || prompt;
-
-            // 如果目标模型需要英文翻译（flux、kontext、krea），进行翻译
-            const englishModels = ['flux', 'kontext', 'krea'];
-            if (englishModels.includes(targetModel.toLowerCase())) {
-                const translateResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                        "Authorization": `Bearer ${openrouterApiKey}`,
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        model: "anthropic/claude-3.5-sonnet",
-                        messages: [
-                            { 
-                                role: "system", 
-                                content: "你是一个专业的英文翻译专家。请将中文提示词准确翻译成英文，保持技术术语和描述的精确性，只返回翻译结果。" 
-                            },
-                            { 
-                                role: "user", 
-                                content: `请将以下中文提示词翻译成英文：\n\n${optimizedPrompt}\n\n请直接返回英文翻译，不要添加任何解释或前缀。` 
-                            }
-                        ],
-                        max_tokens: 1000,
-                        temperature: 0.3
-                    })
-                });
-
-                if (translateResponse.ok) {
-                    const translateData = await translateResponse.json();
-                    const englishPrompt = translateData.choices?.[0]?.message?.content?.trim();
-                    if (englishPrompt) {
-                        optimizedPrompt = englishPrompt;
-                    }
-                } else {
-                    console.warn("Translation failed, using Chinese optimized prompt");
-                }
-            }
-
-            return new Response(JSON.stringify({ 
-                success: true, 
-                optimizedPrompt: optimizedPrompt 
-            }), {
-                headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-            });
-
-        } catch (error) {
-            console.error("Error handling /prompt-optimize request:", error);
             return createJsonErrorResponse(error.message, 500);
         }
     }
