@@ -14,36 +14,6 @@
         <img id="modal-image" src="" alt="全屏预览">
     </div>
 
-    <!-- 提示词优化模态框 -->
-    <div id="optimize-modal" class="modal hidden">
-        <div class="modal-content">
-            <span class="close-btn">&times;</span>
-            <h3>提示词优化结果</h3>
-            <div class="optimize-content">
-                <div class="original-prompt">
-                    <h4>原始提示词:</h4>
-                    <p id="original-prompt-text"></p>
-                </div>
-                <div class="optimized-prompt">
-                    <h4>优化后提示词:</h4>
-                    <p id="optimized-prompt-text"></p>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button id="apply-optimized-btn" class="btn-primary">应用优化</button>
-                <button id="copy-optimized-btn" class="btn-secondary">复制</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 提示词优化加载模态框 -->
-    <div id="optimize-loading-modal" class="modal hidden">
-        <div class="modal-content loading-modal">
-            <div class="loading-spinner"></div>
-            <p>正在优化提示词...</p>
-        </div>
-    </div>
-
     <!-- 主题切换按钮 -->
     <button id="theme-toggle-btn" aria-label="切换主题">
         <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
@@ -85,13 +55,16 @@
                     <div id="thumbnails-container-chatgpt"></div>
                 </div>
                 <div class="prompt-section">
-                    <h2>2. 输入提示词 <span id="chatgpt-prompt-remark" class="prompt-remark">(支持中文提示词)</span></h2>
+                    <div class="prompt-title-container">
+                        <h2>2. 输入提示词 <span id="chatgpt-prompt-remark" class="prompt-remark">(支持中文提示词)</span></h2>
+                        <button id="chatgpt-prompt-optimize-btn" class="prompt-optimize-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                            提示词优化
+                        </button>
+                    </div>
                     <textarea id="prompt-input-chatgpt" placeholder="例如：一只穿着超级英雄斗篷的猫，电影级灯光"></textarea>
-                    <!-- 添加提示词优化按钮 -->
-                    <button class="prompt-optimize-btn" data-model="chatgpt" title="点击优化提示词">
-                        <span class="optimize-icon">✨</span>
-                        <span class="optimize-text">提示词优化</span>
-                    </button>
                 </div>
                 <!-- ChatGPT 专用的生成按钮 -->
                 <button class="generate-btn">
@@ -120,13 +93,16 @@
                     <div id="thumbnails-container"></div>
                 </div>
                 <div class="prompt-section">
-                    <h2>2. 输入提示词 <span id="nanobanana-prompt-remark" class="prompt-remark"></span></h2>
+                    <div class="prompt-title-container">
+                        <h2>2. 输入提示词 <span id="nanobanana-prompt-remark" class="prompt-remark"></span></h2>
+                        <button id="nanobanana-prompt-optimize-btn" class="prompt-optimize-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                            提示词优化
+                        </button>
+                    </div>
                     <textarea id="prompt-input-nanobanana" placeholder="例如：一只穿着超级英雄斗篷的猫，电影级灯光"></textarea>
-                    <!-- 添加提示词优化按钮 -->
-                    <button class="prompt-optimize-btn" data-model="nanobanana" title="点击优化提示词">
-                        <span class="optimize-icon">✨</span>
-                        <span class="optimize-text">提示词优化</span>
-                    </button>
                 </div>
                 <!-- Nano Banana 专用的生成按钮 -->
                 <button class="generate-btn">
@@ -144,22 +120,28 @@
                     <input type="password" id="api-key-input-modelscope" placeholder="请填入 Modelscope 的 API Key">
                 </div>
                 <div class="prompt-section">
-                    <h2>正向提示词 <span id="modelscope-prompt-remark" class="prompt-remark"></span></h2>
+                    <div class="prompt-title-container">
+                        <h2>正向提示词 <span id="modelscope-prompt-remark" class="prompt-remark"></span></h2>
+                        <button id="modelscope-prompt-optimize-btn" class="prompt-optimize-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                            提示词优化
+                        </button>
+                    </div>
                     <textarea id="prompt-input-positive" placeholder="例如：A golden cat, masterpiece, best quality"></textarea>
-                    <!-- 添加正向提示词优化按钮 -->
-                    <button class="prompt-optimize-btn" data-model="modelscope-positive" title="点击优化正向提示词">
-                        <span class="optimize-icon">✨</span>
-                        <span class="optimize-text">提示词优化</span>
-                    </button>
                 </div>
                 <div class="prompt-section">
-                    <h2>负向提示词 <span id="modelscope-negative-prompt-remark" class="prompt-remark"></span></h2>
+                    <div class="prompt-title-container">
+                        <h2>负向提示词 <span id="modelscope-negative-prompt-remark" class="prompt-remark"></span></h2>
+                        <button id="modelscope-negative-prompt-optimize-btn" class="prompt-optimize-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                            提示词优化
+                        </button>
+                    </div>
                     <textarea id="prompt-input-negative" placeholder="例如：worst quality, low quality, normal quality"></textarea>
-                    <!-- 添加负向提示词优化按钮 -->
-                    <button class="prompt-optimize-btn" data-model="modelscope-negative" title="点击优化负向提示词">
-                        <span class="optimize-icon">✨</span>
-                        <span class="optimize-text">提示词优化</span>
-                    </button>
                 </div>
                 <div class="settings-section">
                     <div class="setting-item">
@@ -213,6 +195,18 @@
                 <p>生成的图片将显示在这里</p>
             </div>
             <div id="result-thumbnails"></div>
+            
+            <!-- 下载按钮区域 -->
+            <div id="download-section" class="download-section">
+                <button id="download-btn" class="download-btn hidden">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7,10 12,15 17,10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    下载原图
+                </button>
+            </div>
         </div>
     </div>
     <script src="script.js"></script>
