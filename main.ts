@@ -187,6 +187,85 @@ serve(async (req) => {
         });
     }
 
+    if (pathname === "/prompt-optimize") {
+        try {
+            const requestData = await req.json();
+            const { prompt, targetModel, apikey } = requestData;
+            
+            if (!prompt) { 
+                return createJsonErrorResponse("提示词不能为空", 400); 
+            }
+            
+            const openrouterApiKey = apikey || Deno.env.get("OPENROUTER_API_KEY");
+            if (!openrouterApiKey) { 
+                return createJsonErrorResponse("OpenRouter API key is not set.", 500); 
+            }
+            
+            // 构建提示词优化的系统消息
+            const systemPrompt = `你是一个专业的提示词工程师，专门负责优化和完善AI图像生成的提示词。
+
+任务要求：
+1. 根据提供的原始提示词，生成一个更加详细、精确、有效的优化版本
+2. 保持原始提示词的核心含义和意图
+3. 添加有助于图像生成的技术细节，如风格、质量、构图等描述
+4. 使用具体的形容词和描述词来增强视觉表现力
+5. 确保提示词适合${targetModel}模型的特点
+6. 直接返回优化后的提示词，不要包含任何解释或额外文本`;
+
+            const messages = [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: `请优化以下提示词：${prompt}` }
+            ];
+            
+            console.log("开始优化提示词，目标模型:", targetModel);
+            console.log("原始提示词:", prompt);
+            
+            const optimizePayload = { 
+                model: "openai/gpt-4o-mini",
+                messages: messages,
+                max_tokens: 500,
+                temperature: 0.7
+            };
+            
+            const apiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST", 
+                headers: { 
+                    "Authorization": `Bearer ${openrouterApiKey}`, 
+                    "Content-Type": "application/json" 
+                },
+                body: JSON.stringify(optimizePayload)
+            });
+            
+            if (!apiResponse.ok) {
+                const errorBody = await apiResponse.text();
+                throw new Error(`OpenRouter优化API错误: ${apiResponse.status} ${apiResponse.statusText} - ${errorBody}`);
+            }
+            
+            const responseData = await apiResponse.json();
+            console.log("优化响应:", JSON.stringify(responseData, null, 2));
+            
+            const optimizedPrompt = responseData.choices?.[0]?.message?.content?.trim();
+            if (!optimizedPrompt) {
+                throw new Error("优化模型没有返回有效内容");
+            }
+            
+            console.log("优化完成，新提示词:", optimizedPrompt);
+            
+            return new Response(JSON.stringify({
+                success: true,
+                optimizedPrompt: optimizedPrompt,
+                originalPrompt: prompt,
+                targetModel: targetModel
+            }), {
+                headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+            });
+            
+        } catch (error) {
+            console.error("提示词优化失败:", error);
+            return createJsonErrorResponse(error.message || "提示词优化失败", 500);
+        }
+    }
+
     if (pathname === "/generate") {
         try {
             // [修改] 从请求体中解构出 timeout
