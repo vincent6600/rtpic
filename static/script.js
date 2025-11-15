@@ -589,6 +589,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.addEventListener('keydown', async (e) => {
             // 检查是否按下 Ctrl+V 或 Cmd+V
             if ((e.ctrlKey || e.metaKey) && e.key === 'v' && !e.shiftKey && !e.altKey) {
+                // 检查目标元素是否是输入框，如果是则允许正常处理
+                const targetElement = e.target;
+                const isInputElement = targetElement.tagName === 'TEXTAREA' || 
+                                     targetElement.tagName === 'INPUT' || 
+                                     targetElement.tagName === 'SELECT' ||
+                                     targetElement.isContentEditable;
+                
+                if (isInputElement) {
+                    // 如果是输入框，不拦截，允许正常的复制/粘贴行为
+                    return;
+                }
+                
                 e.preventDefault();
                 
                 // 鼠标在哪个区域就处理哪个区域

@@ -255,7 +255,7 @@ textarea, input[type="password"], input[type="number"], select {
     transition: background-color 0.3s, border-color 0.3s, color 0.3s;
 }
 
-textarea { min-height: 100px; resize: vertical; }
+textarea { min-height: 100px; resize: vertical; user-select: text; -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text; }
 
 select {
     -webkit-appearance: none;
