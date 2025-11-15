@@ -53,33 +53,7 @@ body {
     transition: background-color 0.3s, color 0.3s;
 }
 
-/* 主题切换按钮样式 */
-#theme-toggle-btn {
-    position: fixed;
-    top: 1.5rem;
-    right: 1.5rem;
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    border: 1px solid var(--border-color);
-    background-color: var(--surface-color);
-    color: var(--text-color-secondary);
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 0;
-    z-index: 1000;
-    transition: background-color 0.3s, border-color 0.3s, color 0.3s;
-}
-#theme-toggle-btn:hover {
-    background-color: var(--input-hover-bg-color);
-}
-#theme-toggle-btn svg {
-    stroke: var(--text-color-secondary);
-}
-.light-mode .icon-sun, .dark-mode .icon-moon { display: block; }
-.light-mode .icon-moon, .dark-mode .icon-sun { display: none; }
+
 
 
 .title {
@@ -481,7 +455,7 @@ select {
     body { padding: 1rem; }
     .model-selector-container { flex-direction: column; border-radius: 12px; box-shadow: none; border: 1px solid var(--border-color); }
     .model-card { border-radius: 0; }
-    #theme-toggle-btn { top: 1rem; right: 1rem; }
+
     .image-preview-container {
         max-width: 100%;
         max-height: 400px;

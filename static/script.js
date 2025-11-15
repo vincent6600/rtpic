@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', async () => {
     // --- 元素获取 ---
-    const themeToggleBtn = document.getElementById('theme-toggle-btn');
     const body = document.body;
     const modelSelectorContainer = document.querySelector('.model-selector-container');
     const modelCards = document.querySelectorAll('.model-card');
@@ -80,7 +79,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- 初始化函数 ---
     function initialize() {
-        setupTheme();
         loadStateForCurrentModel();
         setupInputValidation();
         setUniformButtonWidth();
@@ -434,13 +432,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function openModal(imageUrl) { modalImage.src = imageUrl; fullscreenModal.classList.remove('hidden'); }
     
-    function setupTheme() {
-        function applyTheme(theme) { body.className = theme + '-mode'; localStorage.setItem('theme', theme); }
-        themeToggleBtn.addEventListener('click', () => { const newTheme = body.classList.contains('dark-mode') ? 'light' : 'dark'; applyTheme(newTheme); });
-        const savedTheme = localStorage.getItem('theme');
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (savedTheme) { applyTheme(savedTheme); } else if (prefersDark) { applyTheme('dark'); } else { applyTheme('light'); }
-    }
+
     
     function setUniformButtonWidth() {
         let maxWidth = 0;
