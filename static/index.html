@@ -182,25 +182,26 @@
         </div>
 
         <div class="result-container">
-            <h2>生成结果</h2>
+            <div class="result-header">
+                <h2>生成结果</h2>
+                <!-- 下载按钮区域 -->
+                <div id="download-section" class="download-section">
+                    <button id="download-btn" class="download-btn hidden">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7,10 12,15 17,10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        下载原图
+                    </button>
+                </div>
+            </div>
             <div id="main-result-image">
                 <div class="image-preview-container">
                     <p>生成的图片将显示在这里</p>
                 </div>
             </div>
             <div id="result-thumbnails"></div>
-            
-            <!-- 下载按钮区域 -->
-            <div id="download-section" class="download-section">
-                <button id="download-btn" class="download-btn hidden">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7,10 12,15 17,10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    下载原图
-                </button>
-            </div>
         </div>
     </div>
     <script src="script.js"></script>

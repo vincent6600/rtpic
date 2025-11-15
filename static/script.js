@@ -124,6 +124,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // 添加通用的 saveState 函数
+    function saveState() {
+        saveStateForModel(currentModel);
+    }
+
     function loadStateForCurrentModel() {
         const state = modelStates[currentModel];
         if (!state) return;
