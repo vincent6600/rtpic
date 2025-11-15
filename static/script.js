@@ -15,8 +15,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const countButtons = document.querySelectorAll('.count-btn');
     const mainResultImageContainer = document.getElementById('main-result-image');
     const resultThumbnailsContainer = document.getElementById('result-thumbnails');
-    const downloadBtn = document.getElementById('download-btn');
-    const downloadSection = document.getElementById('download-section');
     
     const nanobananaPromptRemark = document.getElementById('nanobanana-prompt-remark');
     const chatgptPromptRemark = document.getElementById('chatgpt-prompt-remark');
@@ -46,11 +44,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const stepsInput = document.getElementById('steps-input');
     const guidanceInput = document.getElementById('guidance-input');
     const seedInput = document.getElementById('seed-input');
-
-    // 提示词优化按钮元素
-    const chatgptOptimizeBtn = document.getElementById('chatgpt-prompt-optimize-btn');
-    const nanobananaOptimizeBtn = document.getElementById('nanobanana-prompt-optimize-btn');
-    const modelscopeOptimizeBtn = document.getElementById('modelscope-prompt-optimize-btn');
 
     // --- 状态变量 ---
     let selectedFilesNano = [];
@@ -88,8 +81,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateHighlightPosition();
         setupModalListeners();
         setupFileUploads();
-        setupDownloadListeners();
-        setupPromptOptimizationListeners();
         
         fetch('/api/key-status').then(res => res.json()).then(data => {
             if (data.isSet) { apiKeyOpenRouterInput.parentElement.style.display = 'none'; }
@@ -164,403 +155,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateGenerateButtonState();
     }
 
-    function clearResults() { 
-        mainResultImageContainer.innerHTML = `<p>生成的图片将显示在这里</p>`; 
-        resultThumbnailsContainer.innerHTML = '';
-        hideDownloadButton();
-    }
+    function clearResults() { mainResultImageContainer.innerHTML = `<p>生成的图片将显示在这里</p>`; resultThumbnailsContainer.innerHTML = ''; }
     
     function setupModalListeners() {
         closeModalBtn.onclick = () => { fullscreenModal.classList.add('hidden'); };
         fullscreenModal.onclick = (e) => { if (e.target === fullscreenModal) { fullscreenModal.classList.add('hidden'); } };
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !fullscreenModal.classList.contains('hidden')) { fullscreenModal.classList.add('hidden'); } });
-    }
-
-    // === 下载功能相关函数 ===
-    function setupDownloadListeners() {
-        // 下载按钮点击事件
-        downloadBtn.addEventListener('click', () => {
-            const currentImage = mainResultImageContainer.querySelector('img');
-            console.log('点击下载按钮，主图片元素:', currentImage);
-            if (currentImage && currentImage.src) {
-                console.log('开始下载图片:', currentImage.src);
-                downloadImage(currentImage.src, `generated-image-${Date.now()}.png`);
-            } else {
-                console.error('未找到可下载的图片或图片src为空');
-                showDownloadError('未找到可下载的图片');
-            }
-        });
-
-        // 为缩略图添加右键下载功能
-        resultThumbnailsContainer.addEventListener('contextmenu', (e) => {
-            if (e.target.tagName === 'IMG') {
-                e.preventDefault();
-                downloadImage(e.target.src, `generated-thumb-${Date.now()}.png`);
-            }
-        });
-
-        // 为主图片添加右键下载功能
-        mainResultImageContainer.addEventListener('contextmenu', (e) => {
-            if (e.target.tagName === 'IMG') {
-                e.preventDefault();
-                downloadImage(e.target.src, `generated-image-${Date.now()}.png`);
-            }
-        });
-    }
-
-    function downloadImage(url, filename) {
-        console.log('开始下载图片:', url, '文件名:', filename);
-        console.log('当前模型:', currentModel);
-        
-        // 检查URL是否有效
-        if (!url || url.trim() === '') {
-            console.error('图片URL为空:', url);
-            showDownloadError('图片URL无效');
-            return;
-        }
-        
-        // 检查图片元素状态
-        const currentImage = mainResultImageContainer.querySelector('img');
-        if (currentImage) {
-            console.log('当前图片元素信息:', {
-                src: currentImage.src,
-                naturalWidth: currentImage.naturalWidth,
-                naturalHeight: currentImage.naturalHeight,
-                complete: currentImage.complete,
-                offsetWidth: currentImage.offsetWidth,
-                offsetHeight: currentImage.offsetHeight
-            });
-        } else {
-            console.warn('未找到图片元素');
-        }
-        
-        // 记录所有可能的图片源
-        const allImages = document.querySelectorAll('#main-result-image img, #result-thumbnails img');
-        console.log('页面中的所有图片元素:', allImages.length);
-        
-        fetch(url)
-            .then(response => {
-                console.log('Fetch响应状态:', response.status, response.statusText);
-                console.log('Fetch响应头:', Object.fromEntries(response.headers.entries()));
-                
-                if (!response.ok) {
-                    const errorText = response.text();
-                    console.error('HTTP错误响应内容:', errorText);
-                    throw new Error(`下载失败: HTTP ${response.status} ${response.statusText} - ${errorText}`);
-                }
-                
-                const contentType = response.headers.get('content-type');
-                console.log('响应Content-Type:', contentType);
-                
-                if (!contentType || !contentType.startsWith('image/')) {
-                    console.warn('响应不是图片格式，内容类型:', contentType);
-                }
-                
-                return response.blob();
-            })
-            .then(blob => {
-                console.log('Blob创建成功:', {
-                    size: blob.size,
-                    type: blob.type
-                });
-                
-                if (blob.size === 0) {
-                    throw new Error('下载的图片文件为空');
-                }
-                
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = filename;
-                console.log('下载链接创建:', {
-                    href: link.href,
-                    download: link.download
-                });
-                
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                setTimeout(() => {
-                    URL.revokeObjectURL(link.href);
-                    console.log('Object URL已释放');
-                }, 100);
-                
-                showDownloadSuccess();
-            })
-            .catch(error => {
-                console.error('下载失败详细信息:', {
-                    error: error,
-                    message: error.message,
-                    stack: error.stack,
-                    url: url,
-                    filename: filename
-                });
-                showDownloadError(error.message || '下载失败');
-            });
-    }
-
-    function showDownloadSuccess() {
-        const hint = document.createElement('div');
-        hint.className = 'download-success-hint';
-        hint.innerHTML = '✅ 图片下载成功';
-        hint.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #10b981;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 14px;
-            z-index: 1000;
-            animation: fadeInOut 2s ease-in-out;
-        `;
-        
-        document.body.appendChild(hint);
-        
-        setTimeout(() => {
-            if (hint.parentNode) {
-                hint.parentNode.removeChild(hint);
-            }
-        }, 2000);
-    }
-
-    function showDownloadError(message = '图片下载失败') {
-        const hint = document.createElement('div');
-        hint.className = 'download-error-hint';
-        hint.innerHTML = `❌ ${message}`;
-        hint.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #ef4444;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 14px;
-            z-index: 1000;
-            animation: fadeInOut 2s ease-in-out;
-        `;
-        
-        document.body.appendChild(hint);
-        
-        setTimeout(() => {
-            if (hint.parentNode) {
-                hint.parentNode.removeChild(hint);
-            }
-        }, 2000);
-    }
-
-    // === 提示词优化功能相关函数 ===
-    function setupPromptOptimizationListeners() {
-        // 按钮点击事件
-        chatgptOptimizeBtn.addEventListener('click', () => optimizePrompt('chatgpt', promptChatGPTInput));
-        nanobananaOptimizeBtn.addEventListener('click', () => optimizePrompt('nanobanana', promptNanoBananaInput));
-        modelscopeOptimizeBtn.addEventListener('click', () => optimizePrompt('modelscope', promptPositiveInput));
-
-
-        // 连续输入三个空格触发优化
-        [promptChatGPTInput, promptNanoBananaInput, promptPositiveInput].forEach(input => {
-            let lastInputTime = 0;
-            let spaceCount = 0;
-            
-            input.addEventListener('input', (e) => {
-                const currentTime = Date.now();
-                const value = input.value;
-                
-                // 检测连续三个空格
-                if (e.inputType === 'insertText' && e.data === ' ') {
-                    if (currentTime - lastInputTime < 1000) { // 1秒内
-                        spaceCount++;
-                    } else {
-                        spaceCount = 1;
-                    }
-                    lastInputTime = currentTime;
-                    
-                    if (spaceCount >= 3) {
-                        spaceCount = 0;
-                        showOptimizationActivated();
-                        
-                        // 延迟触发优化，让用户看到激活反馈
-                        setTimeout(() => {
-                            const promptInput = input === promptPositiveInput || input === promptNegativeInput ? 
-                                (input === promptPositiveInput ? promptPositiveInput : promptNegativeInput) : input;
-                            const modelType = input === promptPositiveInput || input === promptNegativeInput ? 
-                                'modelscope' : (input === promptChatGPTInput ? 'chatgpt' : 'nanobanana');
-                            optimizePrompt(modelType, promptInput);
-                        }, 500);
-                    }
-                } else {
-                    spaceCount = 0;
-                }
-            });
-        });
-    }
-
-    function showOptimizationActivated() {
-        const hint = document.createElement('div');
-        hint.className = 'optimization-activated-hint';
-        hint.innerHTML = '✨ 激活提示词优化';
-        hint.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            z-index: 1000;
-            animation: fadeInOut 2s ease-in-out;
-        `;
-        
-        document.body.appendChild(hint);
-        
-        setTimeout(() => {
-            if (hint.parentNode) {
-                hint.parentNode.removeChild(hint);
-            }
-        }, 2000);
-    }
-
-    async function optimizePrompt(modelType, promptInput) {
-        const originalPrompt = promptInput.value.trim();
-        if (!originalPrompt) {
-            showOptimizationError('请先输入提示词内容');
-            return;
-        }
-
-        // 确定目标模型（用于语言处理）
-        let targetModel = currentModel;
-        if (modelType === 'chatgpt') {
-            targetModel = 'chatgpt';
-        } else if (modelType === 'nanobanana') {
-            targetModel = 'nanobanana';
-        } else {
-            targetModel = currentModel;
-        }
-
-        try {
-            // 显示加载状态
-            const optimizeBtn = getOptimizeButton(modelType);
-            if (optimizeBtn) {
-                optimizeBtn.disabled = true;
-                optimizeBtn.innerHTML = `
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2">
-                            <animate attributeName="stroke-dasharray" dur="1.5s" values="0 50;25 25;50 0" repeatCount="indefinite"/>
-                        </circle>
-                    </svg>
-                    优化中...
-                `;
-            }
-
-            const response = await fetch('/prompt-optimize', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt: originalPrompt,
-                    targetModel: targetModel,
-                    apikey: apiKeyOpenRouterInput.value
-                })
-            });
-
-            const data = await response.json();
-            
-            if (!response.ok || data.error) {
-                throw new Error(data.error || `优化失败: ${response.status}`);
-            }
-
-            // 替换提示词内容
-            promptInput.value = data.optimizedPrompt;
-            
-            // 保存状态
-            saveStateForModel(currentModel);
-            
-            showOptimizationSuccess('提示词优化成功');
-            
-        } catch (error) {
-            console.error('提示词优化失败:', error);
-            showOptimizationError(error.message || '提示词优化失败，请稍后重试');
-        } finally {
-            // 恢复按钮状态
-            const optimizeBtn = getOptimizeButton(modelType);
-            if (optimizeBtn) {
-                optimizeBtn.disabled = false;
-                optimizeBtn.innerHTML = `
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                    </svg>
-                    提示词优化
-                `;
-            }
-        }
-    }
-
-    function getOptimizeButton(modelType) {
-        if (modelType === 'chatgpt') {
-            return chatgptOptimizeBtn;
-        } else if (modelType === 'nanobanana') {
-            return nanobananaOptimizeBtn;
-        } else {
-            // 对于modelscope，我们需要判断是正向还是负向提示词
-            // 这里简化处理，返回正向提示词的优化按钮
-            return modelscopeOptimizeBtn;
-        }
-    }
-
-    function showOptimizationSuccess(message) {
-        const hint = document.createElement('div');
-        hint.className = 'optimization-success-hint';
-        hint.innerHTML = `✅ ${message}`;
-        hint.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #10b981;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 14px;
-            z-index: 1000;
-            animation: fadeInOut 2s ease-in-out;
-        `;
-        
-        document.body.appendChild(hint);
-        
-        setTimeout(() => {
-            if (hint.parentNode) {
-                hint.parentNode.removeChild(hint);
-            }
-        }, 2000);
-    }
-
-    function showOptimizationError(message) {
-        const hint = document.createElement('div');
-        hint.className = 'optimization-error-hint';
-        hint.innerHTML = `❌ ${message}`;
-        hint.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #ef4444;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 14px;
-            z-index: 1000;
-            animation: fadeInOut 3s ease-in-out;
-        `;
-        
-        document.body.appendChild(hint);
-        
-        setTimeout(() => {
-            if (hint.parentNode) {
-                hint.parentNode.removeChild(hint);
-            }
-        }, 3000);
     }
 
     function openModal(imageUrl) { modalImage.src = imageUrl; fullscreenModal.classList.remove('hidden'); }
@@ -1086,23 +686,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function displayResults(imageUrls) {
         if (!imageUrls || imageUrls.length === 0 || !imageUrls[0]) { 
-            updateResultStatus("模型没有返回有效的图片URL。");
-            hideDownloadButton();
+            updateResultStatus("模型没有返回有效的图片URL。"); 
             return; 
         }
+        
         mainResultImageContainer.innerHTML = ''; 
         resultThumbnailsContainer.innerHTML = '';
+        
+        const imagePreviewContainer = document.createElement('div');
+        imagePreviewContainer.className = 'image-preview-container';
         
         const mainImg = document.createElement('img');
         mainImg.src = imageUrls[0];
         mainImg.onclick = () => openModal(mainImg.src);
-        mainResultImageContainer.appendChild(mainImg);
+        
+        imagePreviewContainer.appendChild(mainImg);
+        mainResultImageContainer.appendChild(imagePreviewContainer);
         
         if (imageUrls.length > 1) {
             imageUrls.forEach((url, index) => {
+                if (index === 0) return; // 跳过大图
                 const thumbImg = document.createElement('img');
                 thumbImg.src = url;
-                thumbImg.classList.add('result-thumb');
+                thumbImg.className = 'result-thumb';
+                thumbImg.onclick = () => openModal(thumbImg.src);
+                
                 if (index === 0) { thumbImg.classList.add('active'); }
                 thumbImg.addEventListener('click', () => { 
                     mainImg.src = thumbImg.src; 
@@ -1112,30 +720,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 resultThumbnailsContainer.appendChild(thumbImg);
             });
         }
-        
-        // 显示下载按钮
-        showDownloadButton();
     }
 
     function updateResultStatus(text) { 
-        mainResultImageContainer.innerHTML = `<p>${text}</p>`; 
+        mainResultImageContainer.innerHTML = `<div class="image-preview-container"><p>${text}</p></div>`; 
         resultThumbnailsContainer.innerHTML = ''; 
-        hideDownloadButton();
     }
     function updateResultStatusWithSpinner(text) { 
-        mainResultImageContainer.innerHTML = `<div class="loading-spinner"></div><p>${text}</p>`; 
-        resultThumbnailsContainer.innerHTML = '';
-        hideDownloadButton();
-    }
-    
-    function showDownloadButton() {
-        downloadBtn.classList.remove('hidden');
-        downloadSection.style.display = 'flex';
-    }
-    
-    function hideDownloadButton() {
-        downloadBtn.classList.add('hidden');
-        downloadSection.style.display = 'none';
+        mainResultImageContainer.innerHTML = `<div class="image-preview-container"><div class="loading-spinner"></div><p>${text}</p></div>`; 
+        resultThumbnailsContainer.innerHTML = ''; 
     }
     
     function setLoading(isLoading, btn, btnText, spinner) {
