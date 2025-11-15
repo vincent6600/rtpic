@@ -183,7 +183,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         downloadBtn.addEventListener('click', downloadImage);
     }
     
-    function downloadImage() {
+    async function downloadImage() {
         if (!currentModel) {
             showDownloadError('请先选择一个模型');
             return;
@@ -209,12 +209,57 @@ document.addEventListener('DOMContentLoaded', async () => {
         const originalText = downloadBtn.innerHTML;
         downloadBtn.innerHTML = `<div class="spinner"></div>下载中...`;
         
-        fetch(currentImageUrl)
-            .then(response => {
-                if (!response.ok) throw new Error('下载失败');
-                return response.blob();
-            })
-            .then(blob => {
+        try {
+            // 策略1: 尝试直接fetch (对OpenRouter有效)
+            let blob = null;
+            try {
+                const directResponse = await fetch(currentImageUrl);
+                if (directResponse.ok) {
+                    blob = await directResponse.blob();
+                    console.log('✅ 直接下载成功');
+                } else {
+                    throw new Error(`HTTP ${directResponse.status}`);
+                }
+            } catch (directError) {
+                console.log('直接下载失败，尝试使用代理:', directError.message);
+                
+                // 策略2: 使用后端代理 (对ModelScope有效)
+                try {
+                    const proxyResponse = await fetch('/download-proxy', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ imageUrl: currentImageUrl })
+                    });
+                    
+                    if (proxyResponse.ok) {
+                        blob = await proxyResponse.blob();
+                        console.log('✅ 代理下载成功');
+                    } else {
+                        throw new Error(`代理服务器错误: ${proxyResponse.status}`);
+                    }
+                } catch (proxyError) {
+                    console.log('代理下载失败，使用备选方案:', proxyError.message);
+                    
+                    // 策略3: 备选方案 - 直接在新窗口打开
+                    const newTab = window.open(currentImageUrl, '_blank');
+                    if (!newTab) {
+                        // 如果弹窗被阻止，创建一个临时链接
+                        const tempLink = document.createElement('a');
+                        tempLink.href = currentImageUrl;
+                        tempLink.target = '_blank';
+                        tempLink.style.display = 'none';
+                        document.body.appendChild(tempLink);
+                        tempLink.click();
+                        document.body.removeChild(tempLink);
+                    }
+                    
+                    showDownloadSuccess('图片已在新窗口中打开');
+                    return;
+                }
+            }
+            
+            // 成功下载，触发保存
+            if (blob) {
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -224,27 +269,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);
                 showDownloadSuccess();
-            })
-            .catch(error => {
-                console.error('下载失败详细信息:', {
-                    error: error,
-                    message: error.message,
-                    stack: error.stack,
-                    url: currentImageUrl,
-                    filename: filename
-                });
-                showDownloadError(error.message || '下载失败');
-            })
-            .finally(() => {
-                downloadBtn.disabled = false;
-                downloadBtn.innerHTML = originalText;
-            });
+            }
+            
+        } catch (error) {
+            console.error('所有下载策略都失败了:', error);
+            showDownloadError('下载失败，请稍后重试');
+        } finally {
+            downloadBtn.disabled = false;
+            downloadBtn.innerHTML = originalText;
+        }
     }
     
-    function showDownloadSuccess() {
+    function showDownloadSuccess(customMessage = '✅ 图片下载成功') {
         const hint = document.createElement('div');
         hint.className = 'download-success-hint';
-        hint.innerHTML = '✅ 图片下载成功';
+        hint.innerHTML = customMessage;
         hint.style.cssText = `
             position: fixed;
             top: 20px;
