@@ -189,10 +189,9 @@ serve(async (req) => {
 
     if (pathname === "/prompt-optimize") {
         try {
-            // 接收提示词优化请求
             const requestData = await req.json();
             const { prompt, targetModel, apikey } = requestData;
-
+            
             if (!prompt) { 
                 return createJsonErrorResponse("提示词不能为空", 400); 
             }
@@ -201,8 +200,8 @@ serve(async (req) => {
             if (!openrouterApiKey) { 
                 return createJsonErrorResponse("OpenRouter API key is not set.", 500); 
             }
-
-            // 构建优化提示词的系统提示
+            
+            // 构建提示词优化的系统消息
             const systemPrompt = `你是一个专业的提示词工程师，专门负责优化和完善AI图像生成的提示词。
 
 任务要求：
@@ -211,102 +210,59 @@ serve(async (req) => {
 3. 添加有助于图像生成的技术细节，如风格、质量、构图等描述
 4. 使用具体的形容词和描述词来增强视觉表现力
 5. 确保提示词适合${targetModel}模型的特点
-6. 直接返回优化后的提示词，不要包含任何解释或额外文本
-
-请直接返回优化后的提示词。`;
+6. 直接返回优化后的提示词，不要包含任何解释或额外文本`;
 
             const messages = [
-                { 
-                    role: "system", 
-                    content: systemPrompt 
-                },
-                { 
-                    role: "user", 
-                    content: `请优化以下提示词（目标模型：${targetModel}）：\n\n原始提示词：${prompt}` 
-                }
+                { role: "system", content: systemPrompt },
+                { role: "user", content: `请优化以下提示词：${prompt}` }
             ];
-
-            // 使用OpenRouter API调用文本生成模型进行提示词优化
+            
+            console.log("开始优化提示词，目标模型:", targetModel);
+            console.log("原始提示词:", prompt);
+            
             const optimizePayload = { 
-                model: "openai/gpt-4o-mini",  // 使用性价比高的文本模型进行优化
+                model: "openai/gpt-4o-mini",
                 messages: messages,
                 max_tokens: 500,
                 temperature: 0.7
             };
             
-            console.log("正在优化提示词:", JSON.stringify({ 
-                originalPrompt: prompt, 
-                targetModel: targetModel 
-            }, null, 2));
-
             const apiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-                method: "POST",
+                method: "POST", 
                 headers: { 
                     "Authorization": `Bearer ${openrouterApiKey}`, 
                     "Content-Type": "application/json" 
                 },
                 body: JSON.stringify(optimizePayload)
             });
-
+            
             if (!apiResponse.ok) {
                 const errorBody = await apiResponse.text();
-                throw new Error(`OpenRouter API error: ${apiResponse.status} ${apiResponse.statusText} - ${errorBody}`);
+                throw new Error(`OpenRouter优化API错误: ${apiResponse.status} ${apiResponse.statusText} - ${errorBody}`);
             }
-
+            
             const responseData = await apiResponse.json();
-            console.log("提示词优化完成:", JSON.stringify(responseData, null, 2));
+            console.log("优化响应:", JSON.stringify(responseData, null, 2));
             
             const optimizedPrompt = responseData.choices?.[0]?.message?.content?.trim();
             if (!optimizedPrompt) {
-                throw new Error("模型没有返回有效的优化提示词");
+                throw new Error("优化模型没有返回有效内容");
             }
-
-            return new Response(JSON.stringify({ 
-                success: true, 
+            
+            console.log("优化完成，新提示词:", optimizedPrompt);
+            
+            return new Response(JSON.stringify({
+                success: true,
                 optimizedPrompt: optimizedPrompt,
                 originalPrompt: prompt,
                 targetModel: targetModel
             }), {
                 headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
             });
-
-        } catch (error) {
-            console.error("错误处理/prompt-optimize请求:", error);
-            return createJsonErrorResponse(error.message, 500);
-        }
-    }
-
-    if (pathname === "/download-proxy") {
-        try {
-            const requestData = await req.json();
-            const { imageUrl } = requestData;
-
-            if (!imageUrl) {
-                return createJsonErrorResponse("图片URL不能为空", 400);
-            }
-
-            console.log(`[Download Proxy] 正在代理下载图片: ${imageUrl}`);
-
-            // 使用fetch下载图片
-            const response = await fetch(imageUrl);
-            if (!response.ok) {
-                throw new Error(`下载图片失败: ${response.status} ${response.statusText}`);
-            }
-
-            const imageBlob = await response.blob();
             
-            // 返回图片数据
-            return new Response(imageBlob, {
-                headers: {
-                    "Content-Type": imageBlob.type || "image/png",
-                    "Access-Control-Allow-Origin": "*",
-                    "Content-Disposition": `attachment; filename="downloaded-image-${Date.now()}.png"`
-                }
-            });
-
         } catch (error) {
-            console.error("Error handling /download-proxy request:", error);
-            return createJsonErrorResponse(error.message, 500);
+            console.error("提示词优化失败:", error);
+            return createJsonErrorResponse(error.message || "提示词优化失败", 500);
         }
     }
 
