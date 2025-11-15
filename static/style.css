@@ -148,6 +148,7 @@ body {
     max-width: 1400px;
     margin: 0 auto;
     min-height: 700px;
+    align-items: stretch;
 }
 
 .controls-container {
@@ -162,6 +163,8 @@ body {
     flex-direction: column;
     justify-content: space-between;
     transition: background-color 0.3s, border-color 0.3s;
+    min-height: 700px;
+    height: fit-content;
     min-height: 700px;
     height: fit-content;
 }
@@ -330,31 +333,30 @@ select {
 
 .download-section {
     display: flex;
-    justify-content: center;
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border-color);
+    align-items: center;
+    justify-content: flex-end;
 }
 
 .download-btn {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.5rem;
-    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    gap: 0.25rem;
+    padding: 0.4rem 0.8rem;
+    background: linear-gradient(135deg, #10b981, #059669);
     border: none;
-    border-radius: 8px;
+    border-radius: 6px;
     color: white;
-    font-size: 0.9rem;
+    font-size: 0.75rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.3s ease;
+    white-space: nowrap;
 }
 
 .download-btn:hover {
-    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    background: linear-gradient(135deg, #059669, #047857);
     transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
 .download-btn:active {
